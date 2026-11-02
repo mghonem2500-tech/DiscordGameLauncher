@@ -660,6 +660,42 @@ body {font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(115deg,
 @media(max-width:680px) {.details-grid{grid-template-columns:1fr}.brand-copy small{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 
+/* Compact refinement pass */
+.title-bar { height:72px; min-height:72px; padding-left:28px; }
+.brand-logo { width:46px; height:46px; border-radius:11px; }
+.brand-lockup { gap:13px; }
+.brand-copy strong { font-size:19px; }
+.brand-copy small { font-size:10px; }
+.sidebar { width:275px; min-width:275px; padding:22px 18px 18px; }
+.sidebar-actions { margin-bottom:10px; }
+.search-wrapper { margin-bottom:10px; }
+.search-input { height:45px; padding-top:9px; padding-bottom:9px; font-size:13px; }
+.btn-add-game { min-height:42px; height:42px; padding:9px 13px; border-radius:10px; font-size:13px; }
+.refresh-btn { margin-top:7px; }
+.library-heading { margin:24px 5px 12px; font-size:11px; }
+.game-item { min-height:44px; padding:9px 12px; margin-bottom:5px; border-radius:9px; font-size:13px; }
+.game-status-dot { width:7px; height:7px; margin-right:9px; }
+.fav-icon { font-size:15px; }
+.hero-section { padding:30px 34px 15px; }
+.hero-header-row { min-height:125px; margin-bottom:20px; padding-bottom:18px; }
+.status-indicator { padding:7px 11px; margin-bottom:13px; font-size:11px; }
+.game-hero-title { font-size:clamp(25px,3.3vw,44px); }
+.game-hero-subtitle { margin-top:8px; font-size:13px; }
+.btn-main { min-height:46px; height:46px; padding:11px 20px; border-radius:10px; font-size:13px; }
+.btn-main svg { width:19px; height:19px; margin-right:8px !important; }
+.details-panel { padding:17px 18px 18px; margin-bottom:13px; border-radius:13px; }
+.details-title { font-size:15px; margin-bottom:13px; }
+.details-grid { gap:9px 11px; }
+.details-item { min-height:70px; padding:12px 13px; border-radius:9px; }
+.details-label { font-size:10px; margin-bottom:6px; }
+.details-value { font-size:12px; }
+.console-area { height:145px; margin:0 18px 16px; border-radius:13px; }
+.console-header { height:40px; padding:0 15px; font-size:12px; }
+.console-logs { padding:10px 15px; font-size:11px; }
+.modal-container { border-radius:13px; }
+.modal-header { padding:15px 18px; }
+.modal-body { padding:18px; }
+
 /* Luxury motion layer */
 @keyframes medoAurora { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 @keyframes medoFloat { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-3px) scale(1.02); } }

@@ -446,23 +446,28 @@ function resetAndRenderModal(filter) {
 }
 
 // --- NEW DETECTION WARNING PROMISE HELPERS ---
-function promptDetectionWarning() {
+function promptDetectionWarning(game) {
   return new Promise((resolve) => {
     const modal = document.getElementById('warningModal');
     const closeBtn = document.getElementById('warningCloseBtn');
     const cancelBtn = document.getElementById('warningCancelBtn');
     const confirmBtn = document.getElementById('warningConfirmBtn');
+    const exeInput = document.getElementById('customExeInput');
 
-    if (!modal) return resolve(true);
+    if (!modal) return resolve({ proceed: true, exe: '' });
 
     modal.style.display = 'flex';
+    if (exeInput) {
+      exeInput.value = '';
+      setTimeout(() => exeInput.focus(), 0);
+    }
 
     const handleChoice = (proceed) => {
       modal.style.display = 'none';
       closeBtn.onclick = null;
       cancelBtn.onclick = null;
       confirmBtn.onclick = null;
-      resolve(proceed);
+      resolve({ proceed, exe: exeInput ? exeInput.value.trim() : '' });
     };
 
     closeBtn.onclick = () => handleChoice(false);
@@ -506,11 +511,12 @@ async function renderNextModalPage() {
     div.onclick = async () => {
       // --- CHECK DETECTION FLAG BEFORE ADDING ---
       if (game.usesNewDetection) {
-        const userWantsToProceed = await promptDetectionWarning();
-        if (!userWantsToProceed) {
+        const choice = await promptDetectionWarning(game);
+        if (!choice?.proceed) {
           log(`Cancelled adding ${game.name}.`, 'log-entry');
           return; // Abort silently
         }
+        if (choice.exe) game.exe = choice.exe;
       }
       // ------------------------------------------
 

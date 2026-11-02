@@ -2,6 +2,8 @@
   "name": "medo-game-launcher",
   "private": true,
   "version": "0.1.0",
+  "description": "Premium Discord Activity Launcher",
+  "author": "mghonem2500-tech",
   "repository": {
     "type": "git",
     "url": "https://github.com/mghonem2500-tech/DiscordGameLauncher.git"
@@ -28,13 +30,14 @@
   "build": {
     "appId": "com.mghonem2500.medo-game-launcher",
     "productName": "Medo Game Launcher",
-    "icon": "assets/icon.ico",
+    "icon": "icon.ico",
     "files": [
       "src/**"
     ],
     "asar": true,
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "assets"
     },
     "extraResources": [
       {
@@ -50,7 +53,8 @@
       }
     ],
     "win": {
-      "icon": "assets/icon.ico",
+      "icon": "icon.ico",
+      "signAndEditExecutable": false,
       "target": [
         "nsis"
       ]
