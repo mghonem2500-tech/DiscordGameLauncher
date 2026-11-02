@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="title-bar">
-    <div class="brand-lockup"><img src="logo.png" alt="Medo" class="brand-logo" /><span>Medo Game Launcher</span></div>
+    <div class="brand-lockup"><img src="logo.png" alt="Medo" class="brand-logo" /><span class="brand-copy"><strong>Medo Game <em>Launcher</em></strong><small>Discord Fake Game Launcher</small></span></div>
     <div class="window-controls">
       <button class="win-btn" id="minBtn" aria-label="Minimize">—</button>
       <button class="win-btn close" id="closeBtn" aria-label="Close">✕</button>
@@ -28,14 +28,14 @@
         </button>
         <button class="btn-add-game refresh-btn" id="refreshBtn" title="Refresh game database">↻ Refresh Database</button>
       </div>
-      <div class="game-list-container" id="gameList"></div>
+      <div class="library-heading"><span>♧ &nbsp; GAME LIBRARY</span><span class="library-rule"></span></div><div class="game-list-container" id="gameList"></div>
     </div>
 
     <div class="main-content" id="mainContent">
       <div class="hero-section">
         <div id="heroEmptyState" class="hero-empty-state">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="opacity: 0.3;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          <br /><strong>Welcome to Medo Game Launcher</strong><span>Select a game to view details.</span>
+          <br /><strong>Welcome to Medo Game Launcher</strong><span>Select a game from the library to view its details.</span>
         </div>
 
         <div id="heroContent" class="hero-content">
@@ -59,7 +59,7 @@
           </div>
 
           <div class="details-panel" id="detailsPanel">
-            <div class="details-title">Details</div>
+            <div class="details-title"><span class="info-symbol">ⓘ</span> DETAILS</div>
             <div class="details-grid">
               <div class="details-item">
                 <div class="details-label">App ID</div>
@@ -84,7 +84,7 @@
       </div>
 
       <div class="console-area">
-        <div class="console-logs" id="logArea">
+        <div class="console-header"><span><b class="terminal-mark">›_</b> System Log</span><span class="live-label">LIVE ACTIVITY</span></div><div class="console-logs" id="logArea">
           <div class="log-entry"><span class="log-time">[System]</span> Ready.</div>
         </div>
       </div>

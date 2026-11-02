@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const { makeGameKey } = require('./launcher-state');
 
 const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable';
+const MEDO_USER_DATA_DIR = 'MedoGameLauncher';
 
 // In-memory cache to avoid re-reading/parsing large gamelist.json on every search.
 let databaseCache = {
@@ -281,25 +282,23 @@ async function ensureFakeExeForGame(game, paths) {
 
   const destExePath = path.join(gameFolder, exeFileName);
 
-  if (!fs.existsSync(destExePath)) {
-    // Copy main exe but rename to target exe file name
-    await fsp.copyFile(dummySourceExe, destExePath);
+  // Always refresh the fake executable from the bundled template. Existing
+  // users may have an older DummyGame window cached in their userData folder.
+  // The process is checked before this function is called, so overwriting is safe.
+  await fsp.copyFile(dummySourceExe, destExePath);
 
-    // Copy sidecar files DummyGame.* from source dir
-    const sourceDir = path.dirname(dummySourceExe);
-    const dummyBase = path.basename(dummySourceExe, path.extname(dummySourceExe));
+  // Copy sidecar files DummyGame.* from source dir and refresh old versions.
+  const sourceDir = path.dirname(dummySourceExe);
+  const dummyBase = path.basename(dummySourceExe, path.extname(dummySourceExe));
 
-    const sidecars = await fsp.readdir(sourceDir);
-    for (const fileName of sidecars) {
-      if (!fileName.toLowerCase().startsWith(dummyBase.toLowerCase() + '.')) continue;
-      if (fileName.toLowerCase() === path.basename(dummySourceExe).toLowerCase()) continue;
+  const sidecars = await fsp.readdir(sourceDir);
+  for (const fileName of sidecars) {
+    if (!fileName.toLowerCase().startsWith(dummyBase.toLowerCase() + '.')) continue;
+    if (fileName.toLowerCase() === path.basename(dummySourceExe).toLowerCase()) continue;
 
-      const src = path.join(sourceDir, fileName);
-      const dest = path.join(gameFolder, fileName);
-      if (!fs.existsSync(dest)) {
-        await fsp.copyFile(src, dest);
-      }
-    }
+    const src = path.join(sourceDir, fileName);
+    const dest = path.join(gameFolder, fileName);
+    await fsp.copyFile(src, dest);
   }
 
   return { destExePath, workingDirectory: path.dirname(destExePath) };
@@ -381,12 +380,17 @@ async function maybeCheckForUpdates() {
 
 
 async function createWindow() {
+  const windowIcon = app.isPackaged
+    ? path.join(process.resourcesPath, 'medo-icon.ico')
+    : path.join(app.getAppPath(), 'assets', 'icon.ico');
+
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 700,
     minWidth: 900,
     minHeight: 600,
     frame: false,
+    icon: windowIcon,
     backgroundColor: '#36393f',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -400,6 +404,9 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   app.setAppUserModelId('com.medo.game-launcher');
+  // Keep Medo Game Launcher completely isolated from the original launcher.
+  // This prevents shared libraries, cached game files and settings.
+  app.setPath('userData', path.join(app.getPath('appData'), MEDO_USER_DATA_DIR));
   await createWindow();
 
   // Check for updates (packaged builds only)
@@ -566,11 +573,16 @@ ipcMain.handle('launcher/createShortcut', async (_evt, { appId, exe }) => {
     const displayName = String(game?.name || path.basename(destExePath));
     const escaped = displayName.replace(/"/g, '\\"');
     const args = `"${escaped}"`;
+    const shortcutIcon = app.isPackaged
+      ? process.execPath
+      : path.join(app.getAppPath(), 'assets', 'icon.ico');
 
     const ok = shell.writeShortcutLink(shortcutPath, {
       target: destExePath,
       cwd: workingDirectory,
-      args
+      args,
+      icon: shortcutIcon,
+      iconIndex: 0
     });
 
     if (!ok) return { ok: false, error: 'Failed to create shortcut.' };

@@ -26,9 +26,9 @@
     "electron-updater": "^6.3.0"
   },
   "build": {
-    "appId": "com.jeardey.discordfakegamelauncher",
+    "appId": "com.mghonem2500.medo-game-launcher",
     "productName": "Medo Game Launcher",
-    "icon": "assets/logo.png",
+    "icon": "assets/icon.ico",
     "files": [
       "src/**"
     ],
@@ -38,6 +38,10 @@
     },
     "extraResources": [
       {
+        "from": "assets/icon.ico",
+        "to": "medo-icon.ico"
+      },
+      {
         "from": "build-resources/dummygame",
         "to": "dummygame",
         "filter": [
@@ -46,7 +50,7 @@
       }
     ],
     "win": {
-      "icon": "assets/logo.png",
+      "icon": "assets/icon.ico",
       "target": [
         "nsis"
       ]

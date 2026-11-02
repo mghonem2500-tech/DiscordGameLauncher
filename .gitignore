@@ -7,3 +7,4 @@ publish/
 .vscode/
 node_modules/
 dist/
+dist-*/

@@ -65,6 +65,7 @@ function log(msg, type = '') {
 }
 
 function resetHeroState() {
+  document.querySelector('.status-indicator')?.classList.remove('playing');
   statusDot.style.backgroundColor = 'var(--text-muted)';
   statusDot.style.color = 'var(--text-muted)';
   statusText.innerText = 'Ready';
@@ -94,6 +95,7 @@ function syncSelectedGameLaunchState() {
   statusDot.style.color = 'var(--success)';
   statusText.innerText = 'Playing Now';
   statusText.style.color = 'var(--success)';
+  document.querySelector('.status-indicator')?.classList.add('playing');
 
   launchBtn.classList.add('running');
   document.getElementById('launchBtnText').innerText = 'Stop Playing';
