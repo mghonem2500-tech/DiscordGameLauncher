@@ -7,6 +7,13 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="intro-overlay" id="introOverlay" aria-hidden="true">
+    <div class="intro-orbit orbit-one"></div>
+    <div class="intro-orbit orbit-two"></div>
+    <div class="intro-logo-wrap"><img src="logo.png" alt="Medo Game Launcher" class="intro-logo" /></div>
+    <div class="intro-title">MEDO GAME <span>LAUNCHER</span></div>
+    <div class="intro-line"><span></span><b>INITIALIZING GAME LIBRARY</b><span></span></div>
+  </div>
   <div class="title-bar">
     <div class="brand-lockup"><img src="logo.png" alt="Medo" class="brand-logo" /><span class="brand-copy"><strong>Medo Game <em>Launcher</em></strong><small>Discord Fake Game Launcher</small></span></div>
     <div class="window-controls">
@@ -29,12 +36,25 @@
         <button class="btn-add-game refresh-btn" id="refreshBtn" title="Refresh game database">↻ Refresh Database</button>
       </div>
       <div class="library-heading"><span>♧ &nbsp; GAME LIBRARY</span><span class="library-rule"></span></div><div class="game-list-container" id="gameList"></div>
+      <div class="sidebar-footer">
+        <div class="launcher-status-line"><span class="online-dot"></span><span id="updateStatusText">Ready</span></div>
+        <div class="launcher-meta"><span id="developerName">Developed by: mohamed ghonem</span><span id="currentVersion">v0.2.0</span></div>
+        <button class="check-update-btn" id="checkUpdateBtn" title="Check for updates">Check for Updates</button>
+        <button class="language-toggle" id="languageBtn" title="Change language">العربية</button>
+      </div>
     </div>
 
     <div class="main-content" id="mainContent">
       <div class="hero-section">
         <div id="heroEmptyState" class="hero-empty-state">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="opacity: 0.3;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <div class="hero-empty-visual" aria-hidden="true">
+            <span class="energy-orbit orbit-one"></span>
+            <span class="energy-orbit orbit-two"></span>
+            <span class="energy-particle particle-one"></span>
+            <span class="energy-particle particle-two"></span>
+            <span class="energy-particle particle-three"></span>
+            <img src="logo.png" alt="Medo Game Launcher" class="hero-empty-logo" />
+          </div>
           <br /><strong>Welcome to Medo Game Launcher</strong><span>Select a game from the library to view its details.</span>
         </div>
 
@@ -62,19 +82,19 @@
             <div class="details-title"><span class="info-symbol">ⓘ</span> DETAILS</div>
             <div class="details-grid">
               <div class="details-item">
-                <div class="details-label">App ID</div>
+                <div class="details-label" id="detailAppIdLabel">App ID</div>
                 <div class="details-value" id="detailAppId">—</div>
               </div>
               <div class="details-item">
-                <div class="details-label">Executable</div>
+                <div class="details-label" id="detailExeLabel">Executable</div>
                 <div class="details-value" id="detailExe">—</div>
               </div>
               <div class="details-item">
-                <div class="details-label">Favorite</div>
+                <div class="details-label" id="detailFavoriteLabel">Favorite</div>
                 <div class="details-value" id="detailFavorite">—</div>
               </div>
               <div class="details-item">
-                <div class="details-label">Running</div>
+                <div class="details-label" id="detailRunningLabel">Running</div>
                 <div class="details-value" id="detailRunning">—</div>
               </div>
             </div>
@@ -124,7 +144,22 @@
         <div class="share-success-title">Share link copied</div>
         <div class="share-success-subtitle">Send this link to the other user. They can paste it inside Add Game.</div>
         <input type="text" class="search-input share-link-input" id="shareLinkInput" readonly />
-        <button class="btn-main share-copy-btn" id="shareCopyBtn">Copy link again</button>
+        <div class="share-actions-row">
+          <button class="btn-add-game share-open-btn" id="shareOpenBtn">Open link</button>
+          <button class="btn-main share-copy-btn" id="shareCopyBtn">Copy link again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="welcomeModal" style="display:none;">
+    <div class="modal-container welcome-modal-container" style="width: 590px;">
+      <div class="modal-body welcome-modal-body">
+        <img src="logo.png" alt="Medo Game Launcher" class="welcome-logo" />
+        <div class="welcome-title">🎮 مرحباً بيك في Medo Game Launcher</div>
+        <div class="welcome-lead">⚡ اختار لعبتك وشغّلها بضغطة واحدة.</div>
+        <div class="welcome-card"><strong>🚀 كل حاجة جاهزة.. يلا نبدأ!</strong><span>ابحث عن لعبة من Add Game أو الصق رابط مشاركة وصلك من صديق.</span></div>
+        <button class="btn-main welcome-start-btn" id="welcomeStartBtn">ابدأ الآن</button>
       </div>
     </div>
   </div>
@@ -188,6 +223,7 @@
     </div>
   </div>
 
+  <script type="application/json" id="arabicTranslations">{"welcome":"مرحباً بيك في Medo Game Launcher","selectHint":"اختار لعبة من المكتبة لعرض تفاصيلها","ready":"جاهز","playing":"تعمل الآن","launch":"تشغيل اللعبة","stop":"إيقاف اللعب","details":"التفاصيل","appId":"معرّف التطبيق","executable":"الملف التنفيذي","favorite":"المفضلة","running":"الحالة","systemLog":"سجل النظام","live":"نشاط مباشر","importTitle":"هل لديك رابط مشاركة؟","import":"استيراد","shareCopied":"تم نسخ رابط المشاركة","shareHint":"أرسل الرابط للمستخدم الآخر ليضعه داخل إضافة لعبة.","copyAgain":"نسخ الرابط مرة أخرى","openLink":"فتح الرابط","checkUpdates":"التحقق من التحديثات","checking":"جاري التحقق من التحديثات...","current":"البرنامج محدّث","updateFailed":"فشل التحقق من التحديث","language":"English","welcomeTitle":"مرحباً بيك في Medo Game Launcher","welcomeLead":"اختار لعبتك وشغّلها بضغطة واحدة.","welcomeCard":"كل حاجة جاهزة.. يلا نبدأ!","welcomeCardHint":"ابحث عن لعبة من إضافة لعبة أو الصق رابط مشاركة من صديق.","start":"ابدأ الآن","addGame":"إضافة لعبة","refresh":"تحديث قاعدة البيانات","library":"مكتبة الألعاب","filter":"تصفية المكتبة...","search":"ابحث عن لعبة..."}</script>
   <script src="renderer.js"></script>
 </body>
 </html>

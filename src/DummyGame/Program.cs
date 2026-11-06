@@ -67,7 +67,9 @@ namespace DummyGame
 
             var subtitle = new Label
             {
-                Text = "Game session is running",
+                Text = Environment.GetEnvironmentVariable("MEDO_LANGUAGE") == "ar"
+                    ? "جلسة اللعبة قيد التشغيل"
+                    : "Game session is running",
                 Dock = DockStyle.Bottom,
                 Height = 48,
                 TextAlign = ContentAlignment.TopCenter,

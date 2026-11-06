@@ -4,12 +4,14 @@ const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { makeGameKey } = require('./launcher-state');
 
 const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable';
 const MEDO_USER_DATA_DIR = 'MedoGameLauncher';
 const SHARE_PROTOCOL = 'medo-launcher';
+const SHARE_SIGNING_KEY = 'medo-game-launcher-share-v1';
 
 let pendingSharedUrls = [];
 
@@ -25,7 +27,13 @@ function parseSharedGameUrl(rawUrl) {
     const name = String(parsed.searchParams.get('name') || '').trim().slice(0, 200);
     const appId = String(parsed.searchParams.get('appId') || '').trim().slice(0, 100);
     const exe = String(parsed.searchParams.get('exe') || '').trim().slice(0, 200);
-    if (!name || !exe) return null;
+    const signature = String(parsed.searchParams.get('sig') || '').trim();
+    if (!name || !exe || !signature) return null;
+
+    const expected = crypto.createHmac('sha256', SHARE_SIGNING_KEY)
+      .update(`${appId}|${name}|${exe}`)
+      .digest('hex');
+    if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
 
     return { id: appId, name, exe };
   } catch {
@@ -49,6 +57,9 @@ function getUserDataPaths() {
   return {
     userData,
     myGamesPath: path.join(userData, 'myGames.json'),
+    myGamesBackupPath: path.join(userData, 'myGames.json.bak'),
+    welcomePath: path.join(userData, 'welcome-seen.json'),
+    languagePath: path.join(userData, 'language.json'),
     gameListPath: path.join(userData, 'gamelist.json'),
     gamesRoot: path.join(userData, 'games')
   };
@@ -183,6 +194,28 @@ async function readJsonIfExists(filePath, fallback) {
 
 async function writeJson(filePath, data) {
   await fsp.writeFile(filePath, JSON.stringify(data, null, 2) + os.EOL, 'utf8');
+}
+
+async function readMyGamesList(paths) {
+  try {
+    const parsed = JSON.parse(await fsp.readFile(paths.myGamesPath, 'utf8'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    try {
+      const backup = JSON.parse(await fsp.readFile(paths.myGamesBackupPath, 'utf8'));
+      if (Array.isArray(backup)) {
+        await writeJson(paths.myGamesPath, backup);
+        return backup;
+      }
+    } catch { /* no recoverable backup */ }
+    return [];
+  }
+}
+
+async function backupMyGames(paths) {
+  try {
+    if (fs.existsSync(paths.myGamesPath)) await fsp.copyFile(paths.myGamesPath, paths.myGamesBackupPath);
+  } catch { /* backup is best effort */ }
 }
 
 async function syncGameList(gameListPath) {
@@ -358,6 +391,7 @@ async function maybeCheckForUpdates() {
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+  mainWindow?.webContents.send('update/status', { state: 'checking' });
 
   autoUpdater.on('update-available', (info) => {
     // No persisted dismissal: if the user picks "remind later", the update
@@ -371,14 +405,18 @@ async function maybeCheckForUpdates() {
     };
 
     mainWindow?.webContents.send('update/available', payload);
+    mainWindow?.webContents.send('update/status', { state: 'available', version: payload.version });
   });
 
   autoUpdater.on('update-not-available', () => {
     pendingUpdateInfo = null;
+    mainWindow?.webContents.send('update/status', { state: 'current', version: app.getVersion() });
   });
 
   autoUpdater.on('error', (err) => {
-    mainWindow?.webContents.send('update/error', { message: String(err?.message || err || 'Unknown error') });
+    const message = String(err?.message || err || 'Unknown error');
+    mainWindow?.webContents.send('update/status', { state: 'error', message });
+    mainWindow?.webContents.send('update/error', { message });
   });
 
   autoUpdater.on('download-progress', (progress) => {
@@ -397,7 +435,9 @@ async function maybeCheckForUpdates() {
   try {
     await autoUpdater.checkForUpdates();
   } catch (e) {
-    mainWindow?.webContents.send('update/error', { message: String(e?.message || e || 'Unknown error') });
+    const message = String(e?.message || e || 'Unknown error');
+    mainWindow?.webContents.send('update/status', { state: 'error', message });
+    mainWindow?.webContents.send('update/error', { message });
   }
 }
 
@@ -429,7 +469,7 @@ async function addGameEntry(game) {
   const paths = getUserDataPaths();
   ensureDirSync(paths.userData);
 
-  const myGames = await readJsonIfExists(paths.myGamesPath, []);
+  const myGames = await readMyGamesList(paths);
   const safeList = Array.isArray(myGames) ? myGames : [];
   const entry = {
     appId: String(game?.id ?? game?.appId ?? ''),
@@ -444,11 +484,8 @@ async function addGameEntry(game) {
   const existing = safeList.find(g => `${String(g?.appId || '')}::${String(g?.exe || '')}` === key);
   if (existing) return { entry: existing, added: false };
 
-  try {
-    if (fs.existsSync(paths.myGamesPath)) await fsp.copyFile(paths.myGamesPath, paths.myGamesPath + '.bak');
-  } catch { /* backup is best effort */ }
-
   safeList.push(entry);
+  await backupMyGames(paths);
   await writeJson(paths.myGamesPath, safeList);
   return { entry, added: true };
 }
@@ -536,7 +573,7 @@ ipcMain.handle('launcher/getDatabaseGames', async (_evt, { filter, offset, limit
 
 ipcMain.handle('launcher/getMyGames', async () => {
   const paths = getUserDataPaths();
-  const list = await readJsonIfExists(paths.myGamesPath, []);
+  const list = await readMyGamesList(paths);
   const safeList = Array.isArray(list) ? list : [];
 
   // Privacy/safety: remove any persisted artwork fields from older versions.
@@ -560,14 +597,26 @@ ipcMain.handle('launcher/addGame', async (_evt, game) => {
 });
 
 ipcMain.handle('launcher/shareGame', async (_evt, game) => {
-  const params = new URLSearchParams({
-    appId: String(game?.appId || ''),
-    name: String(game?.name || 'Game'),
-    exe: String(game?.exe || '')
-  });
+  const appId = String(game?.appId || '');
+  const name = String(game?.name || 'Game');
+  const exe = String(game?.exe || '');
+  const sig = crypto.createHmac('sha256', SHARE_SIGNING_KEY).update(`${appId}|${name}|${exe}`).digest('hex');
+  const params = new URLSearchParams({ appId, name, exe, sig });
   const url = `${SHARE_PROTOCOL}://add-game?${params.toString()}`;
   clipboard.writeText(url);
   return { ok: true, url, copied: true };
+});
+
+ipcMain.handle('launcher/openShareLink', async (_evt, rawUrl) => {
+  const url = String(rawUrl || '').trim();
+  if (!parseSharedGameUrl(url)) return { ok: false, error: 'Invalid share link.' };
+  await shell.openExternal(url);
+  return { ok: true };
+});
+
+ipcMain.handle('launcher/previewSharedGame', async (_evt, rawUrl) => {
+  const game = parseSharedGameUrl(String(rawUrl || '').trim());
+  return game ? { ok: true, game } : { ok: false, error: 'Invalid or modified share link.' };
 });
 
 ipcMain.handle('launcher/importSharedGame', async (_evt, rawUrl) => {
@@ -577,9 +626,34 @@ ipcMain.handle('launcher/importSharedGame', async (_evt, rawUrl) => {
   return { ok: true, ...result };
 });
 
+ipcMain.handle('app/getInfo', async () => {
+  const paths = getUserDataPaths();
+  const welcomeSeen = Boolean((await readJsonIfExists(paths.welcomePath, {}))?.seen);
+  return { name: 'Medo Game Launcher', version: app.getVersion(), author: 'mohamed ghonem', welcomeSeen };
+});
+
+ipcMain.handle('app/completeWelcome', async () => {
+  const paths = getUserDataPaths();
+  await writeJson(paths.welcomePath, { seen: true, seenAt: new Date().toISOString() });
+  return { ok: true };
+});
+
+ipcMain.handle('app/setLanguage', async (_evt, language) => {
+  const paths = getUserDataPaths();
+  const safeLanguage = language === 'ar' ? 'ar' : 'en';
+  await writeJson(paths.languagePath, { language: safeLanguage });
+  return { ok: true, language: safeLanguage };
+});
+
+ipcMain.handle('update/checkNow', async () => {
+  if (!app.isPackaged) return { ok: false, error: 'Update checking is available in the installed version.' };
+  await maybeCheckForUpdates();
+  return { ok: true };
+});
+
 ipcMain.handle('launcher/toggleFavorite', async (_evt, { appId, exe }) => {
   const paths = getUserDataPaths();
-  const myGames = await readJsonIfExists(paths.myGamesPath, []);
+  const myGames = await readMyGamesList(paths);
   const safeList = Array.isArray(myGames) ? myGames : [];
 
   let updated = null;
@@ -597,7 +671,7 @@ ipcMain.handle('launcher/toggleFavorite', async (_evt, { appId, exe }) => {
 
 ipcMain.handle('launcher/deleteGame', async (_evt, { appId, exe }) => {
   const paths = getUserDataPaths();
-  const myGames = await readJsonIfExists(paths.myGamesPath, []);
+  const myGames = await readMyGamesList(paths);
   const safeList = Array.isArray(myGames) ? myGames : [];
 
   const before = safeList.length;
@@ -607,6 +681,7 @@ ipcMain.handle('launcher/deleteGame', async (_evt, { appId, exe }) => {
   ));
 
   if (filtered.length !== before) {
+    await backupMyGames(paths);
     await writeJson(paths.myGamesPath, filtered);
   }
 
@@ -621,7 +696,7 @@ ipcMain.handle('launcher/createShortcut', async (_evt, { appId, exe }) => {
   const paths = getUserDataPaths();
   ensureDirSync(paths.userData);
 
-  const myGames = await readJsonIfExists(paths.myGamesPath, []);
+  const myGames = await readMyGamesList(paths);
   const safeList = Array.isArray(myGames) ? myGames : [];
 
   const game = safeList.find(g =>
@@ -653,7 +728,7 @@ ipcMain.handle('launcher/createShortcut', async (_evt, { appId, exe }) => {
     const escaped = displayName.replace(/"/g, '\\"');
     const args = `"${escaped}"`;
     const shortcutIcon = app.isPackaged
-      ? process.execPath
+      ? path.join(process.resourcesPath, 'medo-icon.ico')
       : path.join(app.getAppPath(), 'assets', 'icon.ico');
 
     const ok = shell.writeShortcutLink(shortcutPath, {
@@ -689,9 +764,12 @@ ipcMain.handle('launcher/launchGame', async (_evt, game) => {
   const { destExePath, workingDirectory } = await ensureFakeExeForGame(game, paths);
 
   const displayName = String(game?.name || path.basename(destExePath));
+  const languageState = await readJsonIfExists(paths.languagePath, {});
+  const language = languageState?.language === 'ar' ? 'ar' : 'en';
 
   const proc = spawn(destExePath, [displayName], {
     cwd: workingDirectory,
+    env: { ...process.env, MEDO_LANGUAGE: language },
     windowsHide: false,
     stdio: 'ignore'
   });

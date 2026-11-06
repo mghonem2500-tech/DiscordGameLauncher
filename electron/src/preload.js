@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('launcherApi', {
   deleteGame: (appId, exe) => ipcRenderer.invoke('launcher/deleteGame', { appId, exe }),
   createShortcut: (appId, exe) => ipcRenderer.invoke('launcher/createShortcut', { appId, exe }),
   shareGame: (game) => ipcRenderer.invoke('launcher/shareGame', game),
+  openShareLink: (url) => ipcRenderer.invoke('launcher/openShareLink', url),
+  previewSharedGame: (url) => ipcRenderer.invoke('launcher/previewSharedGame', url),
   importSharedGame: (url) => ipcRenderer.invoke('launcher/importSharedGame', url),
 
   // Run
@@ -39,6 +41,10 @@ contextBridge.exposeInMainWorld('launcherApi', {
     ipcRenderer.removeAllListeners('update/available');
     ipcRenderer.on('update/available', (_evt, payload) => handler(payload));
   },
+  onUpdateStatus: (handler) => {
+    ipcRenderer.removeAllListeners('update/status');
+    ipcRenderer.on('update/status', (_evt, payload) => handler(payload));
+  },
   onUpdateProgress: (handler) => {
     ipcRenderer.removeAllListeners('update/progress');
     ipcRenderer.on('update/progress', (_evt, payload) => handler(payload));
@@ -50,5 +56,9 @@ contextBridge.exposeInMainWorld('launcherApi', {
   onUpdateError: (handler) => {
     ipcRenderer.removeAllListeners('update/error');
     ipcRenderer.on('update/error', (_evt, payload) => handler(payload));
-  }
+  },
+  checkForUpdates: () => ipcRenderer.invoke('update/checkNow'),
+  getAppInfo: () => ipcRenderer.invoke('app/getInfo'),
+  setLanguage: (language) => ipcRenderer.invoke('app/setLanguage', language),
+  completeWelcome: () => ipcRenderer.invoke('app/completeWelcome')
 });

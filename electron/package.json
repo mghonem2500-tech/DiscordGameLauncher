@@ -1,7 +1,7 @@
 {
   "name": "medo-game-launcher",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Premium Discord Activity Launcher",
   "author": "mghonem2500-tech",
   "repository": {
@@ -39,6 +39,7 @@
       "output": "dist",
       "buildResources": "assets"
     },
+    "afterPack": "scripts/afterPack.js",
     "extraResources": [
       {
         "from": "assets/icon.ico",
@@ -73,6 +74,7 @@
       }
     ],
     "nsis": {
+      "include": "installer.nsh",
       "oneClick": true,
       "perMachine": true,
       "allowElevation": true,
