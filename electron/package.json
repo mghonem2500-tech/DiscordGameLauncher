@@ -66,6 +66,12 @@
         "repo": "DiscordGameLauncher"
       }
     ],
+    "protocols": [
+      {
+        "name": "Medo Game Launcher Share",
+        "schemes": ["medo-launcher"]
+      }
+    ],
     "nsis": {
       "oneClick": true,
       "perMachine": true,

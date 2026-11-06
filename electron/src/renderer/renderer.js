@@ -187,6 +187,7 @@ function openGameContextMenu(game, x, y) {
 
   contextMenuEl.innerHTML = `
     <div class="context-menu-item" id="ctxShortcut">Create shortcut</div>
+    <div class="context-menu-item" id="ctxShare">Share game</div>
     <div class="context-menu-item danger" id="ctxDelete">Delete from library</div>
   `;
 
@@ -213,6 +214,7 @@ function openGameContextMenu(game, x, y) {
   });
 
   const shortcutBtn = document.getElementById('ctxShortcut');
+  const shareBtn = document.getElementById('ctxShare');
   const deleteBtn = document.getElementById('ctxDelete');
 
   shortcutBtn.addEventListener('click', async () => {
@@ -226,6 +228,13 @@ function openGameContextMenu(game, x, y) {
     }
 
     log(`Shortcut created: ${r.path}`, 'log-success');
+  });
+
+  shareBtn.addEventListener('click', async () => {
+    closeContextMenu();
+    const r = await launcherApi.shareGame(game);
+    if (r?.ok) log(`Share link copied for ${game.name}.`, 'log-success');
+    else log(`Could not create share link for ${game.name}.`, 'log-danger');
   });
 
   deleteBtn.addEventListener('click', async () => {
@@ -252,6 +261,17 @@ function openGameContextMenu(game, x, y) {
     log(`Deleted ${game.name} from library.`, 'log-success');
   });
 }
+
+launcherApi.onSharedGame(async (payload) => {
+  if (!payload?.entry) return;
+  await refreshMyGames();
+  const verb = payload.added ? 'Added shared game' : 'Game already exists';
+  log(`${verb}: ${payload.entry.name}.`, payload.added ? 'log-success' : '');
+  if (payload.added) {
+    const imported = myGames.find(g => makeGameKey(g) === makeGameKey(payload.entry));
+    if (imported) await selectGame(imported);
+  }
+});
 
 async function toggleFavorite(game) {
   const updated = await launcherApi.toggleFavorite(game.appId, game.exe);

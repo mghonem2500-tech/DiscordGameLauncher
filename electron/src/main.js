@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, clipboard } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -9,6 +9,29 @@ const { makeGameKey } = require('./launcher-state');
 
 const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable';
 const MEDO_USER_DATA_DIR = 'MedoGameLauncher';
+const SHARE_PROTOCOL = 'medo-launcher';
+
+let pendingSharedUrls = [];
+
+function extractShareUrl(values) {
+  return (values || []).find(value => String(value || '').toLowerCase().startsWith(`${SHARE_PROTOCOL}://`)) || '';
+}
+
+function parseSharedGameUrl(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== `${SHARE_PROTOCOL}:` || parsed.hostname !== 'add-game') return null;
+
+    const name = String(parsed.searchParams.get('name') || '').trim().slice(0, 200);
+    const appId = String(parsed.searchParams.get('appId') || '').trim().slice(0, 100);
+    const exe = String(parsed.searchParams.get('exe') || '').trim().slice(0, 200);
+    if (!name || !exe) return null;
+
+    return { id: appId, name, exe };
+  } catch {
+    return null;
+  }
+}
 
 // In-memory cache to avoid re-reading/parsing large gamelist.json on every search.
 let databaseCache = {
@@ -402,12 +425,74 @@ async function createWindow() {
   await mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
+async function addGameEntry(game) {
+  const paths = getUserDataPaths();
+  ensureDirSync(paths.userData);
+
+  const myGames = await readJsonIfExists(paths.myGamesPath, []);
+  const safeList = Array.isArray(myGames) ? myGames : [];
+  const entry = {
+    appId: String(game?.id ?? game?.appId ?? ''),
+    name: String(game?.name || 'Game').trim().slice(0, 200),
+    exe: String(game?.exe || '').trim().slice(0, 200),
+    isFavorite: false
+  };
+
+  if (!entry.exe) entry.exe = fallbackExeNameFromTitle(entry.name);
+
+  const key = `${entry.appId}::${entry.exe}`;
+  const existing = safeList.find(g => `${String(g?.appId || '')}::${String(g?.exe || '')}` === key);
+  if (existing) return { entry: existing, added: false };
+
+  try {
+    if (fs.existsSync(paths.myGamesPath)) await fsp.copyFile(paths.myGamesPath, paths.myGamesPath + '.bak');
+  } catch { /* backup is best effort */ }
+
+  safeList.push(entry);
+  await writeJson(paths.myGamesPath, safeList);
+  return { entry, added: true };
+}
+
+async function handleSharedGameUrl(rawUrl) {
+  const game = parseSharedGameUrl(rawUrl);
+  if (!game) return false;
+
+  const result = await addGameEntry(game);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send('launcher/sharedGame', { ...result, source: rawUrl });
+  }
+  return true;
+}
+
+const initialShareUrl = extractShareUrl(process.argv);
+if (initialShareUrl) pendingSharedUrls.push(initialShareUrl);
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    const shareUrl = extractShareUrl(commandLine);
+    if (shareUrl) void handleSharedGameUrl(shareUrl);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 app.whenReady().then(async () => {
   app.setAppUserModelId('com.medo.game-launcher');
   // Keep Medo Game Launcher completely isolated from the original launcher.
   // This prevents shared libraries, cached game files and settings.
   app.setPath('userData', path.join(app.getPath('appData'), MEDO_USER_DATA_DIR));
+  if (process.platform === 'win32') app.setAsDefaultProtocolClient(SHARE_PROTOCOL);
   await createWindow();
+
+  for (const shareUrl of pendingSharedUrls.splice(0)) await handleSharedGameUrl(shareUrl);
 
   // Check for updates (packaged builds only)
   await maybeCheckForUpdates();
@@ -471,31 +556,18 @@ ipcMain.handle('launcher/getMyGames', async () => {
 });
 
 ipcMain.handle('launcher/addGame', async (_evt, game) => {
-  const paths = getUserDataPaths();
-  ensureDirSync(paths.userData);
+  return (await addGameEntry(game)).entry;
+});
 
-  const myGames = await readJsonIfExists(paths.myGamesPath, []);
-  const safeList = Array.isArray(myGames) ? myGames : [];
-
-  const entry = {
-    appId: String(game?.id || ''),
+ipcMain.handle('launcher/shareGame', async (_evt, game) => {
+  const params = new URLSearchParams({
+    appId: String(game?.appId || ''),
     name: String(game?.name || 'Game'),
-    exe: String(game?.exe || ''),
-    isFavorite: false
-  };
-
-  // Avoid duplicates by (appId + exe)
-  const key = `${entry.appId}::${entry.exe}`;
-  const existingKey = (g) => `${String(g?.appId || '')}::${String(g?.exe || '')}`;
-  if (!safeList.some(g => existingKey(g) === key)) {
-    try {
-      if (fs.existsSync(paths.myGamesPath)) await fsp.copyFile(paths.myGamesPath, paths.myGamesPath + '.bak');
-    } catch { /* backup is best effort */ }
-    safeList.push(entry);
-    await writeJson(paths.myGamesPath, safeList);
-  }
-
-  return entry;
+    exe: String(game?.exe || '')
+  });
+  const url = `${SHARE_PROTOCOL}://add-game?${params.toString()}`;
+  clipboard.writeText(url);
+  return { ok: true, url, copied: true };
 });
 
 ipcMain.handle('launcher/toggleFavorite', async (_evt, { appId, exe }) => {

@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('launcherApi', {
   toggleFavorite: (appId, exe) => ipcRenderer.invoke('launcher/toggleFavorite', { appId, exe }),
   deleteGame: (appId, exe) => ipcRenderer.invoke('launcher/deleteGame', { appId, exe }),
   createShortcut: (appId, exe) => ipcRenderer.invoke('launcher/createShortcut', { appId, exe }),
+  shareGame: (game) => ipcRenderer.invoke('launcher/shareGame', game),
 
   // Run
   selectGame: (game) => ipcRenderer.invoke('launcher/selectGame', game),
@@ -23,6 +24,10 @@ contextBridge.exposeInMainWorld('launcherApi', {
   onGameExited: (handler) => {
     ipcRenderer.removeAllListeners('launcher/gameExited');
     ipcRenderer.on('launcher/gameExited', (_evt, payload) => handler(payload));
+  },
+  onSharedGame: (handler) => {
+    ipcRenderer.removeAllListeners('launcher/sharedGame');
+    ipcRenderer.on('launcher/sharedGame', (_evt, payload) => handler(payload));
   },
 
   // Updates
