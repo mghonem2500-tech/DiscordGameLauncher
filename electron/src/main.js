@@ -570,6 +570,13 @@ ipcMain.handle('launcher/shareGame', async (_evt, game) => {
   return { ok: true, url, copied: true };
 });
 
+ipcMain.handle('launcher/importSharedGame', async (_evt, rawUrl) => {
+  const game = parseSharedGameUrl(String(rawUrl || '').trim());
+  if (!game) return { ok: false, error: 'Invalid Medo Game Launcher share link.' };
+  const result = await addGameEntry(game);
+  return { ok: true, ...result };
+});
+
 ipcMain.handle('launcher/toggleFavorite', async (_evt, { appId, exe }) => {
   const paths = getUserDataPaths();
   const myGames = await readJsonIfExists(paths.myGamesPath, []);

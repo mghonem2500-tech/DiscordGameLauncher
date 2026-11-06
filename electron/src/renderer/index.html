@@ -98,10 +98,33 @@
         <svg style="cursor:pointer;" id="closeModalBtn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </div>
       <div class="modal-body">
+        <div class="share-import-box">
+          <div class="share-import-title">Have a shared game link?</div>
+          <div class="share-import-row">
+            <input type="text" class="search-input" id="importLinkInput" placeholder="Paste medo-launcher:// link here..." />
+            <button class="btn-add-game import-link-btn" id="importSharedGameBtn">Import</button>
+          </div>
+        </div>
         <div class="search-wrapper">
           <input type="text" class="search-input" id="modalSearchInput" placeholder="Search for games..." />
         </div>
         <div class="modal-list" id="modalList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="shareModal" style="display:none;">
+    <div class="modal-container share-modal-container" style="width: 560px;">
+      <div class="modal-header">
+        <span>Game Shared Successfully</span>
+        <svg style="cursor:pointer;" id="closeShareModalBtn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </div>
+      <div class="modal-body share-modal-body">
+        <div class="share-success-icon">✓</div>
+        <div class="share-success-title">Share link copied</div>
+        <div class="share-success-subtitle">Send this link to the other user. They can paste it inside Add Game.</div>
+        <input type="text" class="search-input share-link-input" id="shareLinkInput" readonly />
+        <button class="btn-main share-copy-btn" id="shareCopyBtn">Copy link again</button>
       </div>
     </div>
   </div>

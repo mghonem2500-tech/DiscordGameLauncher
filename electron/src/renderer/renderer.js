@@ -28,6 +28,10 @@ const addGameModal = document.getElementById('addGameModal');
 const modalListEl = document.getElementById('modalList');
 const searchInput = document.getElementById('searchInput');
 const modalSearchInput = document.getElementById('modalSearchInput');
+const shareModal = document.getElementById('shareModal');
+const shareLinkInput = document.getElementById('shareLinkInput');
+const shareCopyBtn = document.getElementById('shareCopyBtn');
+let sharedGameForModal = null;
 const contextMenuEl = document.getElementById('contextMenu');
 const refreshBtn = document.getElementById('refreshBtn');
 
@@ -157,11 +161,16 @@ function renderMainList(filter = '') {
     div.innerHTML = `
       <div class="game-status-dot ${running ? 'active' : ''}" aria-label="${running ? 'Running' : 'Stopped'}"></div>
       <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${game.name}</div>
+      <button class="game-share-btn" title="Share game" aria-label="Share ${game.name}">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"></line></svg>
+      </button>
       <div class="fav-icon">${starSvg}</div>
     `;
 
     div.addEventListener('click', async (e) => {
-      if (e.target.closest('.fav-icon')) {
+      if (e.target.closest('.game-share-btn')) {
+        await shareGame(game);
+      } else if (e.target.closest('.fav-icon')) {
         await toggleFavorite(game);
       } else {
         await selectGame(game);
@@ -175,6 +184,23 @@ function renderMainList(filter = '') {
 
     gameListEl.appendChild(div);
   }
+}
+
+async function shareGame(game) {
+  const result = await launcherApi.shareGame(game);
+  if (!result?.ok) {
+    log(`Could not create share link for ${game.name}.`, 'log-danger');
+    return;
+  }
+
+  sharedGameForModal = game;
+  if (shareLinkInput) shareLinkInput.value = result.url;
+  if (shareModal) shareModal.style.display = 'flex';
+  log(`Share link copied for ${game.name}.`, 'log-success');
+}
+
+function closeShareModal() {
+  if (shareModal) shareModal.style.display = 'none';
 }
 
 function closeContextMenu() {
@@ -465,6 +491,28 @@ function resetAndRenderModal(filter) {
   renderNextModalPage();
 }
 
+async function importSharedGame() {
+  const input = document.getElementById('importLinkInput');
+  const rawUrl = String(input?.value || '').trim();
+  if (!rawUrl) {
+    log('Paste a Medo share link first.', 'log-danger');
+    return;
+  }
+
+  const result = await launcherApi.importSharedGame(rawUrl);
+  if (!result?.ok) {
+    log(result?.error || 'Invalid share link.', 'log-danger');
+    return;
+  }
+
+  closeModal();
+  input.value = '';
+  await refreshMyGames();
+  const imported = myGames.find(g => makeGameKey(g) === makeGameKey(result.entry));
+  if (imported) await selectGame(imported);
+  log(`${result.added ? 'Added' : 'Already in library'}: ${result.entry.name}.`, result.added ? 'log-success' : '');
+}
+
 // --- NEW DETECTION WARNING PROMISE HELPERS ---
 function promptDetectionWarning(game) {
   return new Promise((resolve) => {
@@ -638,6 +686,15 @@ launchBtn.addEventListener('click', async () => {
 document.getElementById('openAddModalBtn').onclick = openModal;
 if (refreshBtn) refreshBtn.onclick = refreshDatabase;
 document.getElementById('closeModalBtn').onclick = closeModal;
+document.getElementById('importSharedGameBtn').onclick = importSharedGame;
+document.getElementById('closeShareModalBtn').onclick = closeShareModal;
+shareCopyBtn?.addEventListener('click', async () => {
+  if (!sharedGameForModal) return;
+  await shareGame(sharedGameForModal);
+});
+shareModal?.addEventListener('click', (e) => {
+  if (e.target === shareModal) closeShareModal();
+});
 searchInput.addEventListener('input', (e) => renderMainList(e.target.value));
 const onModalSearch = debounce((value) => resetAndRenderModal(value), 200);
 modalSearchInput.addEventListener('input', (e) => onModalSearch(e.target.value));
