@@ -702,6 +702,12 @@ body {font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(115deg,
 .check-update-btn { width:100%; margin-top:10px; border:1px solid #5f5a9a; color:#bfc7e7; background:rgba(37,48,104,.5); border-radius:8px; padding:8px; cursor:pointer; font-size:11px; }
 .check-update-btn:hover { color:#fff; border-color:#c16cff; background:rgba(126,41,191,.25); }
 .language-toggle { width:100%; margin-top:7px; height:36px; display:flex; align-items:center; justify-content:center; gap:9px; border:1px solid #8b67c8; color:#e8dfff; background:rgba(168,85,247,.14); border-radius:18px; padding:5px 10px; cursor:pointer; font-size:11px; font-weight:700; transition:.25s ease; }
+.download-latest-btn { width:100%; margin-top:7px; height:34px; border:1px solid #3dc5ff88; color:#d9f6ff; background:linear-gradient(100deg,#123c7899,#7e29bf99); border-radius:9px; cursor:pointer; font-size:11px; font-weight:800; transition:.25s ease; }
+.download-latest-btn:hover { border-color:#7de2ff; box-shadow:0 0 18px #35caff66; transform:translateY(-1px); }
+.download-modal-body { text-align:center; align-items:center; }
+.download-orb { width:64px; height:64px; display:grid; place-items:center; margin:2px auto 14px; border:1px solid #c16cff; border-radius:20px; color:#fff; font-size:34px; background:radial-gradient(circle,#a855f766,#23134f); box-shadow:0 0 28px #a855f799; animation:downloadOrbPulse 1.8s ease-in-out infinite; }
+.download-subtitle { color:#bfc7e7; margin-bottom:14px; }
+@keyframes downloadOrbPulse { 50% { transform:translateY(-4px) scale(1.06); box-shadow:0 0 42px #3dc5ffaa; } }
 .language-toggle:hover { background:rgba(168,85,247,.3); box-shadow:0 0 14px #9b5ed244; }
 .language-switch-track { position:relative; width:38px; height:20px; border-radius:12px; background:linear-gradient(90deg,#7932c7,#263f9b); box-shadow:inset 0 0 0 1px #c27aff66,0 0 10px #8b4bed55; transition:.25s ease; }
 .language-switch-thumb { position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:#fff; box-shadow:0 0 8px #fff; transition:.25s cubic-bezier(.2,.8,.2,1); }

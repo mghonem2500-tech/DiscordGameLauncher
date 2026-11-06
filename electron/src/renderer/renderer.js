@@ -47,6 +47,14 @@ translations.en.welcome = 'Medo Game Launcher';
 translations.ar.welcome = 'Medo Game Launcher';
 translations.en.developerPrefix = 'Developed by';
 translations.ar.developerPrefix = 'تطوير';
+translations.en.downloadTitle = 'Download Latest Version';
+translations.en.downloadSubtitle = 'Get the latest Medo Game Launcher version.';
+translations.en.copyLink = 'Copy Link';
+translations.en.downloadDirect = 'Download Directly';
+translations.ar.downloadTitle = 'تحميل أحدث إصدار';
+translations.ar.downloadSubtitle = 'احصل على أحدث إصدار من Medo Game Launcher.';
+translations.ar.copyLink = 'نسخ الرابط';
+translations.ar.downloadDirect = 'تحميل مباشر';
 let currentLanguage = localStorage.getItem('medo.language') === 'ar' ? 'ar' : 'en';
 const t = key => translations[currentLanguage][key] || translations.en[key] || key;
 let lastUpdateState = 'ready';
@@ -78,6 +86,10 @@ function applyLanguage() {
   document.documentElement.dir = currentLanguage === 'ar' ? 'rtl' : 'ltr';
   document.body.classList.toggle('rtl', currentLanguage === 'ar');
   if (developerName) developerName.textContent = `${t('developerPrefix')}: mohamed ghonem`;
+  setText('#downloadTitle', t('downloadTitle'));
+  setText('#downloadSubtitle', t('downloadSubtitle'));
+  setText('#copyDownloadLinkBtn', t('copyLink'));
+  setText('#openDownloadLinkBtn', t('downloadDirect'));
   setButtonText('#openAddModalBtn', t('addGame'));
   setText('#refreshBtn', t('refresh'));
   setText('.library-heading span:first-child', `♧  ${t('library')}`);
@@ -131,6 +143,11 @@ const modalListEl = document.getElementById('modalList');
 const searchInput = document.getElementById('searchInput');
 const modalSearchInput = document.getElementById('modalSearchInput');
 const shareModal = document.getElementById('shareModal');
+const downloadModal = document.getElementById('downloadModal');
+const downloadLinkInput = document.getElementById('downloadLinkInput');
+const copyDownloadLinkBtn = document.getElementById('copyDownloadLinkBtn');
+const openDownloadLinkBtn = document.getElementById('openDownloadLinkBtn');
+const DOWNLOAD_URL = 'https://github.com/mghonem2500-tech/DiscordGameLauncher/releases/download/v0.3.0/Medo.Game.Launcher.Setup.0.3.0.exe';
 const shareLinkInput = document.getElementById('shareLinkInput');
 const shareCopyBtn = document.getElementById('shareCopyBtn');
 const shareOpenBtn = document.getElementById('shareOpenBtn');
@@ -816,6 +833,23 @@ document.getElementById('languageBtn')?.addEventListener('click', async () => {
 });
 document.getElementById('importSharedGameBtn').onclick = importSharedGame;
 document.getElementById('closeShareModalBtn').onclick = closeShareModal;
+document.getElementById('downloadLatestBtn')?.addEventListener('click', () => {
+  if (downloadLinkInput) downloadLinkInput.value = DOWNLOAD_URL;
+  if (downloadModal) downloadModal.style.display = 'flex';
+});
+document.getElementById('closeDownloadModalBtn')?.addEventListener('click', () => {
+  if (downloadModal) downloadModal.style.display = 'none';
+});
+downloadModal?.addEventListener('click', (e) => {
+  if (e.target === downloadModal) downloadModal.style.display = 'none';
+});
+copyDownloadLinkBtn?.addEventListener('click', async () => {
+  await navigator.clipboard.writeText(DOWNLOAD_URL);
+  const old = copyDownloadLinkBtn.textContent;
+  copyDownloadLinkBtn.textContent = 'Copied';
+  setTimeout(() => { copyDownloadLinkBtn.textContent = old; }, 1400);
+});
+openDownloadLinkBtn?.addEventListener('click', () => launcherApi.openExternalUrl(DOWNLOAD_URL));
 shareOpenBtn?.addEventListener('click', async () => {
   if (!shareLinkInput?.value) return;
   const result = await launcherApi.openShareLink(shareLinkInput.value);

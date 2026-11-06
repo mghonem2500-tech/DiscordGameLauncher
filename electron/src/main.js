@@ -553,6 +553,15 @@ ipcMain.handle('app/window/close', () => {
   mainWindow?.close();
 });
 
+ipcMain.handle('app/openExternalUrl', async (_evt, rawUrl) => {
+  const url = String(rawUrl || '').trim();
+  if (!/^https:\/\/github\.com\/mghonem2500-tech\/DiscordGameLauncher\/releases\/download\//i.test(url)) {
+    return { ok: false, error: 'Invalid download URL.' };
+  }
+  await shell.openExternal(url);
+  return { ok: true };
+});
+
 ipcMain.handle('launcher/syncGameList', async () => {
   const paths = getUserDataPaths();
   ensureDirSync(paths.userData);

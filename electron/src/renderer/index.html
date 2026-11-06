@@ -40,6 +40,7 @@
         <div class="launcher-status-line"><span class="online-dot"></span><span id="updateStatusText">Ready</span></div>
         <div class="launcher-meta"><span id="developerName">Developed by: mohamed ghonem</span><span id="currentVersion">v0.2.0</span></div>
         <button class="check-update-btn" id="checkUpdateBtn" title="Check for updates">Check for Updates</button>
+        <button class="download-latest-btn" id="downloadLatestBtn" title="Download latest version">Download Latest Version</button>
         <button class="language-toggle" id="languageBtn" title="Change language">العربية</button>
       </div>
     </div>
@@ -160,6 +161,24 @@
         <div class="welcome-lead">⚡ اختار لعبتك وشغّلها بضغطة واحدة.</div>
         <div class="welcome-card"><strong>🚀 كل حاجة جاهزة.. يلا نبدأ!</strong><span>ابحث عن لعبة من Add Game أو الصق رابط مشاركة وصلك من صديق.</span></div>
         <button class="btn-main welcome-start-btn" id="welcomeStartBtn">ابدأ الآن</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="downloadModal" style="display:none;">
+    <div class="modal-container download-modal-container" style="width: 560px;">
+      <div class="modal-header">
+        <span id="downloadTitle">Download Latest Version</span>
+        <svg style="cursor:pointer;" id="closeDownloadModalBtn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </div>
+      <div class="modal-body download-modal-body">
+        <div class="download-orb">↓</div>
+        <div class="download-subtitle" id="downloadSubtitle">Get the latest Medo Game Launcher version.</div>
+        <input type="text" class="search-input share-link-input" id="downloadLinkInput" readonly />
+        <div class="share-actions-row">
+          <button class="btn-add-game" id="copyDownloadLinkBtn">Copy Link</button>
+          <button class="btn-main" id="openDownloadLinkBtn">Download Directly</button>
+        </div>
       </div>
     </div>
   </div>

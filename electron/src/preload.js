@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('launcherApi', {
   createShortcut: (appId, exe) => ipcRenderer.invoke('launcher/createShortcut', { appId, exe }),
   shareGame: (game) => ipcRenderer.invoke('launcher/shareGame', game),
   openShareLink: (url) => ipcRenderer.invoke('launcher/openShareLink', url),
+  openExternalUrl: (url) => ipcRenderer.invoke('app/openExternalUrl', url),
   previewSharedGame: (url) => ipcRenderer.invoke('launcher/previewSharedGame', url),
   importSharedGame: (url) => ipcRenderer.invoke('launcher/importSharedGame', url),
 
