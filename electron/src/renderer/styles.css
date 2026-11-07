@@ -729,6 +729,12 @@ body {font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(115deg,
 .rtl .sidebar { border-right:0; border-left:1px solid rgba(130,93,234,.42); }
 .rtl .search-input { padding-left:10px; padding-right:55px; }
 .rtl .search-icon { left:auto; right:18px; }
+.rtl .modal-header, .rtl .modal-body, .rtl .context-menu { direction:rtl; text-align:right; }
+.rtl .modal-header { flex-direction:row-reverse; }
+.rtl .details-grid, .rtl .share-actions-row { direction:rtl; }
+.rtl .game-item, .rtl .modal-item { direction:rtl; text-align:right; }
+.rtl .update-progress-text { text-align:right; }
+.rtl #customExeInput { padding-left:55px !important; padding-right:12px !important; }
 .rtl .hero-header-row, .rtl .details-title, .rtl .console-header { direction:rtl; }
 .rtl .brand-lockup { direction:rtl; }
 .rtl .share-import-row { direction:rtl; }

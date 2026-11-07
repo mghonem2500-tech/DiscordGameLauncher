@@ -44,12 +44,24 @@ jobs:
       - name: Install Electron dependencies
         run: |
           cd electron
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
+
+      - name: Check JavaScript and run unit tests
+        working-directory: ./electron
+        run: npm run check
+
+      - name: Validate DummyGame template
+        working-directory: ./electron
+        run: npm run validate:template
 
       - name: Build Electron (installer)
         run: |
           cd electron
           npm run dist
+
+      - name: Validate packaged DummyGame payload
+        working-directory: ./electron
+        run: npm run validate:package
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7

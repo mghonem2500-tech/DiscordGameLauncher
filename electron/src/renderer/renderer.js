@@ -5,58 +5,97 @@ const starSvg = `<svg width="16" height="16" fill="currentColor" viewBox="0 0 24
 let myGames = [];
 let selectedGame = null;
 let runningGames = new Set();
+let launchBusy = false;
 
 const translations = {
   en: {
-    addGame: 'Add Game', refresh: 'Refresh Database', library: 'GAME LIBRARY', filter: 'Filter library...', search: 'Search for games...',
-    welcome: 'Welcome to Medo Game Launcher', selectHint: 'Select a game from the library to view its details.', ready: 'Ready', playing: 'Playing Now',
-    launch: 'Launch Game', stop: 'Stop Playing', details: 'DETAILS', appId: 'App ID', executable: 'Executable', favorite: 'Favorite', running: 'Running',
-    systemLog: 'System Log', live: 'LIVE ACTIVITY', importTitle: 'Have a shared game link?', import: 'Import', shareSuccess: 'Game Shared Successfully',
-    shareCopied: 'Share link copied', shareHint: 'Send this link to the other user. They can paste it inside Add Game.', copyAgain: 'Copy link again', openLink: 'Open link',
-    checkUpdates: 'Check for Updates', checking: 'Checking for updates...', current: 'Up to date', updateFailed: 'Update check failed', language: 'العربية',
-    welcomeTitle: 'Welcome to Medo Game Launcher', welcomeLead: 'Choose your game and launch it with one click.', welcomeCard: 'Everything is ready. Let\'s start!', welcomeCardHint: 'Search for a game from Add Game or paste a share link from a friend.', start: 'Get Started'
+    addGame: 'Add Game', refresh: 'Refresh Database', library: 'Game Library', filter: 'Filter library...', search: 'Search for games...',
+    welcome: 'Medo Game Launcher', initializing: 'Initializing game library', selectHint: 'Select a game from the library to view its details.', ready: 'Ready', playing: 'Playing Now',
+    launch: 'Launch Game', stop: 'Stop Playing', details: 'Details', appId: 'App ID', executable: 'Executable', favorite: 'Favorite', running: 'Running',
+    yes: 'Yes', no: 'No', stopped: 'Stopped', systemLog: 'System Log', live: 'Live Activity', importTitle: 'Have a shared game link?', import: 'Import',
+    addAction: '+ ADD', minimize: 'Minimize', close: 'Close', closeDialog: 'Close dialog',
+    shareSuccess: 'Game Shared Successfully', shareCopied: 'Share link copied', shareHint: 'Send this link to the other user. They can paste it inside Add Game.',
+    copyAgain: 'Copy link again', openLink: 'Open link', checkUpdates: 'Check for Updates', checking: 'Checking for updates...', current: 'Up to date',
+    updateFailed: 'Update check failed', language: 'العربية', welcomeTitle: 'Welcome to Medo Game Launcher', welcomeLead: 'Choose your game and launch it with one click.',
+    welcomeCard: 'Everything is ready. Let’s start!', welcomeCardHint: 'Search for a game from Add Game or paste a share link from a friend.', start: 'Get Started',
+    updateAvailable: 'Update available', updateUnavailable: 'Update check unavailable', developerPrefix: 'Developed by', downloadTitle: 'Download Latest Version',
+    downloadSubtitle: 'Get the latest Medo Game Launcher version.', copyLink: 'Copy Link', downloadDirect: 'Download Directly', databaseTitle: 'Game Database',
+    shareDialogTitle: 'Game Shared Successfully', updateTitle: 'Update Available', remindLater: 'Remind me later', installUpdate: 'Install update',
+    downloading: 'Downloading update…', installing: 'Installing…', noReleaseNotes: 'No release notes provided.', createShortcut: 'Create shortcut',
+    shareGame: 'Share game', deleteGame: 'Delete from library', shortcutCreating: 'Creating shortcut for {name}…', shortcutCreated: 'Shortcut created: {path}',
+    shortcutFailed: 'Shortcut failed: {error}', shareFailed: 'Could not create a share link for {name}.', shareCopiedFor: 'Share link copied for {name}.',
+    stopBeforeDelete: 'Stop the running game before deleting it.', deleteConfirm: 'Remove “{name}” from your library?', deleted: 'Removed {name} from your library.',
+    sharedAdded: 'Added shared game: {name}.', sharedExists: 'Game already exists: {name}.', pasteShare: 'Paste a Medo share link first.',
+    invalidShare: 'This share link is invalid or has been modified.', importConfirm: 'Add shared game “{name}” to your library?', added: 'Added: {name}.',
+    alreadyInLibrary: 'Already in library: {name}.', addedFromDatabase: 'Added {name} to your library.', cancelled: 'Adding {name} was cancelled.',
+    noResults: 'No results.', databaseNotReady: 'Database not ready. Try again.', databaseUpdated: 'Game database updated.',
+    databaseUnchanged: 'Game database is already up to date.', databaseUpdateAtStartup: 'Updated game database from Discord.',
+    databaseReadyAtStartup: 'Game database is already up to date.', databaseTimeout: 'The game database request timed out. Your saved database was kept.',
+    databaseNetwork: 'Could not connect to the game database. Check your internet connection; your saved database was kept.',
+    databaseHttp: 'The game database service returned an error. Your saved database was kept.',
+    databaseInvalid: 'The game database response was invalid. Your saved database was kept.',
+    databaseStorage: 'Could not save the game database. Your previous copy was kept.', databaseRefreshFailed: 'Could not refresh the game database.',
+    databaseRefreshing: 'Refreshing…', starting: 'Starting…', stopping: 'Stopping…', launchFailed: 'Could not start {name}: {error}', processStarted: 'Started {name}.',
+    alreadyRunning: '{name} is already running.', processTerminated: 'Game session stopped.', processExited: 'Game session ended.',
+    processStopFailed: 'Could not stop {name}.', updateProgress: 'Downloading update… {percent}% ({transferred} / {total}){speed}',
+    downloadComplete: 'Download complete. Installing…', detectionTitle: 'Detection System Warning', detectionIntro: 'This app uses Discord’s newer detection method.',
+    detectionNoExe: 'Discord did not provide an executable filename for this app.', detectionFallback: 'A fallback filename will be used; game tracking may not work correctly.',
+    executableOptional: 'Executable filename (optional)', executableExample: 'Example: FC27.exe', cancel: 'Cancel', confirmAdd: 'Add Game',
+    databaseError: 'Could not load the database: {error}', syncError: 'Could not refresh the database.', copyFailed: 'Could not copy the link.',
+    updateError: 'Update error: {error}',
+    closeGamesQuestion: 'Fake game sessions are still running. Choose what should happen when the launcher closes.',
+    keepRunningClose: 'Keep running and close', stopGamesClose: 'Stop games and close', closeCancelled: 'Cancel',
+    closeFailureTitle: 'Could not stop every session', closeFailure: 'Could not stop: {games}. The launcher will remain open.', ok: 'OK',
+    favoriteYes: 'Yes', favoriteNo: 'No', runningYes: 'Yes', runningNo: 'No',
+    downloadCopyDone: 'Copied'
   },
   ar: {
-    addGame: '\u0625\u0636\u0627\u0641\u0629 \u0644\u0639\u0628\u0629', refresh: '\u062a\u062d\u062f\u064a\u062b \u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a', library: '\u0645\u0643\u062a\u0628\u0629 \u0627\u0644\u0623\u0644\u0639\u0627\u0628', filter: '\u062a\u0635\u0641\u064a\u0629 \u0627\u0644\u0645\u0643\u062a\u0628\u0629...', search: '\u0627\u0628\u062d\u062b \u0639\u0646 \u0644\u0639\u0628\u0629...',
-    welcome: '\u0645\u0631\u062d\u0628\u0627\u064b \u0628\u064a\0643 \u0641\u064a Medo Game Launcher', selectHint: '\u0627\u062e\062a\0631 \u0644\0639\u0628\0629 \u0645\0646 \u0627\u0644\u0645\0643\062a\0628\0629 \u0644\u0639\u0631\0636 \u062a\0641\u0627\0635\064a\0644\0647\0627.', ready: '\u062c\0627\0647\0632', playing: '\u062a\0639\0645\0644 \u0627\u0644\u0622\0646',
-    launch: '\u062a\0634\063a\064a\0644 \u0627\u0644\0644\0639\0628\0629', stop: '\u0625\064a\0642\0627\0641 \u0627\u0644\0644\0639\0628', details: '\u0627\0644\062a\0641\0627\0635\064a\0644', appId: '\u0645\0639\0631\0651\0641 \u0627\u0644\062a\0637\0628\064a\0642', executable: '\u0627\0644\0645\0644\0641 \u0627\u0644\062a\0646\0641\064a\0630\064a', favorite: '\u0627\0644\0645\0641\0636\0644\0629', running: '\u0627\0644\062d\0627\0644\0629',
-    systemLog: '\u0633\062c\0644 \u0627\0644\0646\0638\0627\0645', live: '\u0646\0634\0627\0637 \u0645\0628\0627\0634\0631', importTitle: '\u0647\0644 \u0644\062f\064a\0643 \u0631\0627\0628\0637 \u0645\0634\0627\0631\0643\0629\061f', import: '\u0627\0633\062a\064a\0631\0627\062f', shareSuccess: '\u062a\0645\062a \u0645\0634\0627\0631\0643\0629 \u0627\u0644\0644\0639\0628\0629 \u0628\0646\062c\0627\062d',
-    shareCopied: '\u062a\0645 \u0646\0633\062e \u0631\0627\0628\0637 \u0627\0644\0645\0634\0627\0631\0643\0629', shareHint: '\u0627\0631\0633\0644 \u0627\0644\0631\0627\0628\0637 \u0644\0644\0645\0633\062a\062e\062f\0645 \u0627\0644\0622\062e\0631.', copyAgain: '\u0646\0633\062e \u0627\0644\0631\0627\0628\0637 \u0645\0631\0629 \u0623\062e\0631\0649', openLink: '\u0641\062a\062d \u0627\0644\0631\0627\0628\0637',
-    checkUpdates: '\u0627\0644\062a\062d\0642\0642 \u0645\0646 \u0627\0644\062a\062d\062f\064a\062b\0627\062a', checking: '\u062c\0627\0631\064a \u0627\0644\062a\062d\0642\0642 \u0645\0646 \u0627\u0644\062a\062d\062f\064a\062b\0627\062a...', current: '\u0627\0644\0628\0631\0646\0627\0645\062c \u0645\064f\062d\062f\062b', updateFailed: '\u0641\0634\0644 \u0627\0644\062a\062d\0642\0642 \u0645\0646 \u0627\0644\062a\062d\062f\064a\062b', language: 'English',
-    welcomeTitle: '\u0645\0631\062d\0628\0627\064b \u0628\064a\0643 \u0641\064a Medo Game Launcher', welcomeLead: '\u0627\062e\062a\0627\0631 \u0644\0639\0628\062a\0643 \u0648\0634\063a\0651\0644\0647\0627 \u0628\0636\063a\0637\0629 \u0648\0627\062d\062f\0629.', welcomeCard: '\u0643\0644 \u062d\0627\062c\0629 \u062c\0627\0647\0632\0629.. \u064a\0644\0627 \u0646\0628\062f\0623!', welcomeCardHint: '\u0627\0628\062d\062b \u0639\0646 \u0644\0639\0628\0629 \u0645\0646 Add Game \u0623\0648 \u0627\0644\0635\0642 \u0631\0627\0628\0637 \u0645\0634\0627\0631\0643\0629 \u0645\0646 \u0635\062f\064a\0642.', start: '\u0627\0628\062f\0623 \u0627\0644\u0622\0646'
+    addGame: 'إضافة لعبة', refresh: 'تحديث قاعدة البيانات', library: 'مكتبة الألعاب', filter: 'تصفية المكتبة...', search: 'ابحث عن لعبة...',
+    welcome: 'Medo Game Launcher', initializing: 'جارٍ تجهيز مكتبة الألعاب', selectHint: 'اختار لعبة من المكتبة لعرض تفاصيلها.', ready: 'جاهز', playing: 'تعمل الآن',
+    launch: 'تشغيل اللعبة', stop: 'إيقاف اللعب', details: 'التفاصيل', appId: 'معرّف التطبيق', executable: 'الملف التنفيذي', favorite: 'المفضلة', running: 'الحالة',
+    yes: 'نعم', no: 'لا', stopped: 'متوقفة', systemLog: 'سجل النظام', live: 'نشاط مباشر', importTitle: 'هل لديك رابط لعبة للمشاركة؟', import: 'استيراد',
+    addAction: '+ إضافة', minimize: 'تصغير', close: 'إغلاق', closeDialog: 'إغلاق النافذة',
+    shareSuccess: 'تمت مشاركة اللعبة بنجاح', shareCopied: 'تم نسخ رابط المشاركة', shareHint: 'أرسل الرابط للمستخدم الآخر ليضيفه من نافذة إضافة لعبة.',
+    copyAgain: 'نسخ الرابط مرة أخرى', openLink: 'فتح الرابط', checkUpdates: 'التحقق من التحديثات', checking: 'جارٍ التحقق من التحديثات...',
+    current: 'البرنامج محدّث', updateFailed: 'فشل التحقق من التحديث', language: 'English', welcomeTitle: 'مرحبًا بك في Medo Game Launcher',
+    welcomeLead: 'اختار لعبتك وشغّلها بضغطة واحدة.', welcomeCard: 'كل حاجة جاهزة.. يلا نبدأ!',
+    welcomeCardHint: 'ابحث عن لعبة من إضافة لعبة أو الصق رابط مشاركة من صديق.', start: 'ابدأ الآن', updateAvailable: 'يتوفر تحديث',
+    updateUnavailable: 'تعذر التحقق من التحديثات', developerPrefix: 'تطوير', downloadTitle: 'تحميل أحدث إصدار',
+    downloadSubtitle: 'احصل على أحدث إصدار من Medo Game Launcher.', copyLink: 'نسخ الرابط', downloadDirect: 'تحميل مباشر', databaseTitle: 'قاعدة الألعاب',
+    shareDialogTitle: 'تمت مشاركة اللعبة بنجاح', updateTitle: 'يتوفر تحديث', remindLater: 'ذكّرني لاحقًا', installUpdate: 'تثبيت التحديث',
+    downloading: 'جارٍ تنزيل التحديث…', installing: 'جارٍ التثبيت…', noReleaseNotes: 'لا توجد ملاحظات لهذا التحديث.', createShortcut: 'إنشاء اختصار',
+    shareGame: 'مشاركة اللعبة', deleteGame: 'حذف من المكتبة', shortcutCreating: 'جارٍ إنشاء اختصار لـ {name}…', shortcutCreated: 'تم إنشاء الاختصار: {path}',
+    shortcutFailed: 'تعذر إنشاء الاختصار: {error}', shareFailed: 'تعذر إنشاء رابط مشاركة لـ {name}.', shareCopiedFor: 'تم نسخ رابط {name}.',
+    stopBeforeDelete: 'أوقف جلسة اللعبة قبل حذفها.', deleteConfirm: 'هل تريد حذف «{name}» من مكتبتك؟', deleted: 'تم حذف {name} من مكتبتك.',
+    sharedAdded: 'تمت إضافة اللعبة المشتركة: {name}.', sharedExists: 'اللعبة موجودة بالفعل: {name}.', pasteShare: 'الصق رابط مشاركة Medo أولًا.',
+    invalidShare: 'رابط المشاركة غير صالح أو تم تعديله.', importConfirm: 'هل تريد إضافة «{name}» إلى مكتبتك؟', added: 'تمت الإضافة: {name}.',
+    alreadyInLibrary: 'موجودة بالفعل في المكتبة: {name}.', addedFromDatabase: 'تمت إضافة {name} إلى مكتبتك.', cancelled: 'تم إلغاء إضافة {name}.',
+    noResults: 'لا توجد نتائج.', databaseNotReady: 'قاعدة البيانات غير جاهزة. حاول مرة أخرى.', databaseUpdated: 'تم تحديث قاعدة الألعاب.',
+    databaseUnchanged: 'قاعدة الألعاب محدّثة بالفعل.', databaseUpdateAtStartup: 'تم تحديث قاعدة الألعاب من Discord.',
+    databaseReadyAtStartup: 'قاعدة الألعاب محدّثة بالفعل.', databaseTimeout: 'انتهت مهلة الاتصال بقاعدة الألعاب. احتفظنا بالنسخة المحفوظة.',
+    databaseNetwork: 'تعذر الاتصال بقاعدة الألعاب. تحقق من الإنترنت؛ احتفظنا بالنسخة المحفوظة.',
+    databaseHttp: 'أعادت خدمة قاعدة الألعاب خطأً. احتفظنا بالنسخة المحفوظة.',
+    databaseInvalid: 'البيانات المستلمة لقاعدة الألعاب غير صالحة. احتفظنا بالنسخة المحفوظة.',
+    databaseStorage: 'تعذر حفظ قاعدة الألعاب. احتفظنا بالنسخة السابقة.', databaseRefreshFailed: 'تعذر تحديث قاعدة الألعاب.',
+    databaseRefreshing: 'جارٍ التحديث…', starting: 'جارٍ التشغيل…', stopping: 'جارٍ الإيقاف…', launchFailed: 'تعذر تشغيل {name}: {error}', processStarted: 'بدأت جلسة {name}.',
+    alreadyRunning: 'جلسة {name} تعمل بالفعل.', processTerminated: 'تم إيقاف جلسة اللعبة.', processExited: 'انتهت جلسة اللعبة.',
+    processStopFailed: 'تعذر إيقاف {name}.', updateProgress: 'جارٍ تنزيل التحديث… {percent}% ({transferred} / {total}){speed}',
+    downloadComplete: 'اكتمل التنزيل. جارٍ التثبيت…', detectionTitle: 'تنبيه آلية الاكتشاف', detectionIntro: 'يستخدم هذا التطبيق آلية الاكتشاف الأحدث في Discord.',
+    detectionNoExe: 'لم يحدد Discord اسم الملف التنفيذي لهذا التطبيق.', detectionFallback: 'سيُستخدم اسم بديل، وقد لا يعمل تتبع اللعبة بشكل صحيح.',
+    executableOptional: 'اسم الملف التنفيذي (اختياري)', executableExample: 'مثال: FC27.exe', cancel: 'إلغاء', confirmAdd: 'إضافة اللعبة',
+    databaseError: 'تعذر تحميل قاعدة البيانات: {error}', syncError: 'تعذر تحديث قاعدة البيانات.', copyFailed: 'تعذر نسخ الرابط.',
+    updateError: 'خطأ في التحديث: {error}',
+    closeGamesQuestion: 'ما زالت هناك جلسات ألعاب وهمية تعمل. اختر ما تريد فعله عند إغلاق المشغّل.',
+    keepRunningClose: 'اتركها تعمل وأغلق', stopGamesClose: 'أوقف الألعاب وأغلق', closeCancelled: 'إلغاء',
+    closeFailureTitle: 'تعذر إيقاف كل الجلسات', closeFailure: 'تعذر إيقاف: {games}. سيظل المشغّل مفتوحًا.', ok: 'حسنًا',
+    favoriteYes: 'نعم', favoriteNo: 'لا', runningYes: 'نعم', runningNo: 'لا', downloadCopyDone: 'تم النسخ'
   }
 };
-
-// Keep Arabic strings as real UTF-8 text so Windows does not interpret them as legacy octal escapes.
-translations.ar = {
-  welcome: 'مرحباً بيك في Medo Game Launcher', selectHint: 'اختار لعبة من المكتبة لعرض تفاصيلها', ready: 'جاهز', playing: 'تعمل الآن',
-  launch: 'تشغيل اللعبة', stop: 'إيقاف اللعب', details: 'التفاصيل', appId: 'معرّف التطبيق', executable: 'الملف التنفيذي', favorite: 'المفضلة', running: 'الحالة',
-  systemLog: 'سجل النظام', live: 'نشاط مباشر', importTitle: 'هل لديك رابط مشاركة؟', import: 'استيراد', shareSuccess: 'تمت مشاركة اللعبة بنجاح',
-  shareCopied: 'تم نسخ رابط المشاركة', shareHint: 'أرسل الرابط للمستخدم الآخر ليضعه داخل إضافة لعبة.', copyAgain: 'نسخ الرابط مرة أخرى', openLink: 'فتح الرابط',
-  checkUpdates: 'التحقق من التحديثات', checking: 'جاري التحقق من التحديثات...', current: 'البرنامج محدّث', updateFailed: 'فشل التحقق من التحديث', language: 'English',
-  welcomeTitle: 'مرحباً بيك في Medo Game Launcher', welcomeLead: 'اختار لعبتك وشغّلها بضغطة واحدة.', welcomeCard: 'كل حاجة جاهزة.. يلا نبدأ!', welcomeCardHint: 'ابحث عن لعبة من إضافة لعبة أو الصق رابط مشاركة من صديق.', start: 'ابدأ الآن',
-  addGame: 'إضافة لعبة', refresh: 'تحديث قاعدة البيانات', library: 'مكتبة الألعاب', filter: 'تصفية المكتبة...', search: 'ابحث عن لعبة...'
-};
-
-translations.ar = JSON.parse(document.getElementById('arabicTranslations')?.textContent || '{}');
-translations.en.updateAvailable = 'Update available';
-translations.en.updateUnavailable = 'Update check unavailable';
-translations.ar.updateAvailable = 'يتوفر تحديث';
-translations.ar.updateUnavailable = 'تعذر التحقق من التحديثات';
-translations.en.welcome = 'Medo Game Launcher';
-translations.ar.welcome = 'Medo Game Launcher';
-translations.en.developerPrefix = 'Developed by';
-translations.ar.developerPrefix = 'تطوير';
-translations.en.downloadTitle = 'Download Latest Version';
-translations.en.downloadSubtitle = 'Get the latest Medo Game Launcher version.';
-translations.en.copyLink = 'Copy Link';
-translations.en.downloadDirect = 'Download Directly';
-translations.ar.downloadTitle = 'تحميل أحدث إصدار';
-translations.ar.downloadSubtitle = 'احصل على أحدث إصدار من Medo Game Launcher.';
-translations.ar.copyLink = 'نسخ الرابط';
-translations.ar.downloadDirect = 'تحميل مباشر';
 let currentLanguage = localStorage.getItem('medo.language') === 'ar' ? 'ar' : 'en';
-const t = key => translations[currentLanguage][key] || translations.en[key] || key;
+function t(key, values = {}) {
+  const template = translations[currentLanguage]?.[key] || translations.en[key] || key;
+  return Object.entries(values).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), template);
+}
 let lastUpdateState = 'ready';
 let lastUpdateVersion = '';
 
@@ -81,6 +120,12 @@ function setButtonText(selector, value) {
   else node.appendChild(document.createTextNode(` ${value}`));
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
 function applyLanguage() {
   document.documentElement.lang = currentLanguage;
   document.documentElement.dir = currentLanguage === 'ar' ? 'rtl' : 'ltr';
@@ -103,6 +148,32 @@ function applyLanguage() {
   setText('#importSharedGameBtn', t('import')); setText('.share-import-title', t('importTitle'));
   setText('.share-success-title', t('shareCopied')); setText('.share-success-subtitle', t('shareHint')); setText('#shareCopyBtn', t('copyAgain')); setText('#shareOpenBtn', t('openLink'));
   setText('#checkUpdateBtn', t('checkUpdates'));
+  setText('#systemLogTitle', t('systemLog'));
+  setText('#liveActivityText', t('live'));
+  setText('#introStatus', t('initializing'));
+  setText('#initialReadyLog', t('ready'));
+  setText('#addModalTitle', t('databaseTitle'));
+  setText('#shareModalTitle', t('shareDialogTitle'));
+  setText('#updateTitle', t('updateTitle'));
+  setText('#updateRemindBtn', t('remindLater'));
+  setText('#updateInstallBtn', t('installUpdate'));
+  setText('#updateProgressText', t('downloading'));
+  setText('#warningTitle', t('detectionTitle'));
+  setText('#detectionIntro', t('detectionIntro'));
+  setText('#detectionNoExe', t('detectionNoExe'));
+  setText('#detectionFallback', t('detectionFallback'));
+  setText('#executableOptionalLabel', t('executableOptional'));
+  setText('#warningCancelBtn', t('cancel'));
+  setText('#warningConfirmBtn', t('confirmAdd'));
+  const importInput = document.getElementById('importLinkInput');
+  if (importInput) importInput.placeholder = currentLanguage === 'ar' ? 'الصق رابط medo-launcher:// هنا...' : 'Paste medo-launcher:// link here...';
+  const customExeInput = document.getElementById('customExeInput');
+  if (customExeInput) customExeInput.placeholder = t('executableExample');
+  document.getElementById('minBtn')?.setAttribute('aria-label', t('minimize'));
+  document.getElementById('closeBtn')?.setAttribute('aria-label', t('close'));
+  for (const id of ['closeModalBtn', 'closeShareModalBtn', 'closeDownloadModalBtn', 'updateCloseBtn', 'warningCloseBtn']) {
+    document.getElementById(id)?.setAttribute('aria-label', t('closeDialog'));
+  }
   const languageBtn = document.getElementById('languageBtn');
   if (languageBtn) {
     languageBtn.classList.toggle('is-arabic', currentLanguage === 'ar');
@@ -147,7 +218,7 @@ const downloadModal = document.getElementById('downloadModal');
 const downloadLinkInput = document.getElementById('downloadLinkInput');
 const copyDownloadLinkBtn = document.getElementById('copyDownloadLinkBtn');
 const openDownloadLinkBtn = document.getElementById('openDownloadLinkBtn');
-const DOWNLOAD_URL = 'https://github.com/mghonem2500-tech/DiscordGameLauncher/releases/download/v0.3.0/Medo.Game.Launcher.Setup.0.3.0.exe';
+const DOWNLOAD_URL = 'https://github.com/mghonem2500-tech/DiscordGameLauncher/releases/download/v0.3.1/Medo.Game.Launcher.Setup.0.3.1.exe';
 const shareLinkInput = document.getElementById('shareLinkInput');
 const shareCopyBtn = document.getElementById('shareCopyBtn');
 const shareOpenBtn = document.getElementById('shareOpenBtn');
@@ -261,8 +332,8 @@ function updateDetailsPanel() {
 
   detailAppId.textContent = selectedGame.appId || dash;
   detailExe.textContent = selectedGame.exe || dash;
-  detailFavorite.textContent = selectedGame.isFavorite ? 'Yes' : 'No';
-  detailRunning.textContent = isGameRunning(selectedGame) ? 'Yes' : 'No';
+  detailFavorite.textContent = selectedGame.isFavorite ? t('yes') : t('no');
+  detailRunning.textContent = isGameRunning(selectedGame) ? t('yes') : t('no');
 }
 
 // No background thumbnails in the public build.
@@ -284,9 +355,9 @@ function renderMainList(filter = '') {
     div.className = `game-item ${selectedGame === game ? 'active' : ''} ${game.isFavorite ? 'favorite' : ''} ${running ? 'running' : ''}`;
 
     div.innerHTML = `
-      <div class="game-status-dot ${running ? 'active' : ''}" aria-label="${running ? 'Running' : 'Stopped'}"></div>
-      <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${game.name}</div>
-      <button class="game-share-btn" title="Share game" aria-label="Share ${game.name}">
+      <div class="game-status-dot ${running ? 'active' : ''}" aria-label="${running ? t('running') : t('stopped')}"></div>
+      <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(game.name)}</div>
+      <button class="game-share-btn" title="${escapeHtml(t('shareGame'))}" aria-label="${escapeHtml(t('shareGame'))}: ${escapeHtml(game.name)}">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"></line></svg>
       </button>
       <div class="fav-icon">${starSvg}</div>
@@ -314,14 +385,14 @@ function renderMainList(filter = '') {
 async function shareGame(game) {
   const result = await launcherApi.shareGame(game);
   if (!result?.ok) {
-    log(`Could not create share link for ${game.name}.`, 'log-danger');
+    log(t('shareFailed', { name: game.name }), 'log-danger');
     return;
   }
 
   sharedGameForModal = game;
   if (shareLinkInput) shareLinkInput.value = result.url;
   if (shareModal) shareModal.style.display = 'flex';
-  log(`Share link copied for ${game.name}.`, 'log-success');
+  log(t('shareCopiedFor', { name: game.name }), 'log-success');
 }
 
 function closeShareModal() {
@@ -337,9 +408,9 @@ function openGameContextMenu(game, x, y) {
   if (!game) return;
 
   contextMenuEl.innerHTML = `
-    <div class="context-menu-item" id="ctxShortcut">Create shortcut</div>
-    <div class="context-menu-item" id="ctxShare">Share game</div>
-    <div class="context-menu-item danger" id="ctxDelete">Delete from library</div>
+    <div class="context-menu-item" id="ctxShortcut">${t('createShortcut')}</div>
+    <div class="context-menu-item" id="ctxShare">${t('shareGame')}</div>
+    <div class="context-menu-item danger" id="ctxDelete">${t('deleteGame')}</div>
   `;
 
   const margin = 8;
@@ -370,33 +441,33 @@ function openGameContextMenu(game, x, y) {
 
   shortcutBtn.addEventListener('click', async () => {
     closeContextMenu();
-    log(`Creating shortcut for ${game.name}...`);
+    log(t('shortcutCreating', { name: game.name }));
 
     const r = await launcherApi.createShortcut(game.appId, game.exe);
     if (!r?.ok) {
-      log(`Shortcut failed: ${r?.error || 'unknown error'}`, 'log-danger');
+      log(t('shortcutFailed', { error: r?.error || 'unknown error' }), 'log-danger');
       return;
     }
 
-    log(`Shortcut created: ${r.path}`, 'log-success');
+    log(t('shortcutCreated', { path: r.path }), 'log-success');
   });
 
   shareBtn.addEventListener('click', async () => {
     closeContextMenu();
     const r = await launcherApi.shareGame(game);
-    if (r?.ok) log(`Share link copied for ${game.name}.`, 'log-success');
-    else log(`Could not create share link for ${game.name}.`, 'log-danger');
+    if (r?.ok) log(t('shareCopiedFor', { name: game.name }), 'log-success');
+    else log(t('shareFailed', { name: game.name }), 'log-danger');
   });
 
   deleteBtn.addEventListener('click', async () => {
     // Avoid deleting the currently running selection
       if (isGameRunning(game) && selectedGame && makeGameKey(selectedGame) === makeGameKey(game)) {
-      log('Stop the running game before deleting it.', 'log-danger');
+      log(t('stopBeforeDelete'), 'log-danger');
       closeContextMenu();
       return;
     }
 
-    if (!window.confirm(`Remove "${game.name}" from your library?`)) {
+    if (!window.confirm(t('deleteConfirm', { name: game.name }))) {
       closeContextMenu();
       return;
     }
@@ -414,15 +485,16 @@ function openGameContextMenu(game, x, y) {
       updateDetailsPanel();
     }
 
-    log(`Deleted ${game.name} from library.`, 'log-success');
+    log(t('deleted', { name: game.name }), 'log-success');
   });
 }
 
 launcherApi.onSharedGame(async (payload) => {
   if (!payload?.entry) return;
   await refreshMyGames();
-  const verb = payload.added ? 'Added shared game' : 'Game already exists';
-  log(`${verb}: ${payload.entry.name}.`, payload.added ? 'log-success' : '');
+  log(payload.added
+    ? t('sharedAdded', { name: payload.entry.name })
+    : t('sharedExists', { name: payload.entry.name }), payload.added ? 'log-success' : '');
   if (payload.added) {
     const imported = myGames.find(g => makeGameKey(g) === makeGameKey(payload.entry));
     if (imported) await selectGame(imported);
@@ -477,9 +549,9 @@ function showUpdateModal(payload) {
 
   updateInstallBtn.disabled = false;
   updateRemindBtn.disabled = false;
-  updateInstallBtn.textContent = 'Install update';
+  updateInstallBtn.textContent = t('installUpdate');
 
-  const version = payload.version ? `v${payload.version}` : 'New version';
+  const version = payload.version ? `v${payload.version}` : t('updateTitle');
   updateSubtitle.textContent = payload.releaseName
     ? `${version} — ${payload.releaseName}`
     : version;
@@ -489,7 +561,7 @@ function showUpdateModal(payload) {
   if (updateProgressWrap) {
     updateProgressWrap.style.display = 'none';
     updateProgressFill.style.width = '0%';
-    updateProgressText.textContent = 'Downloading update…';
+    updateProgressText.textContent = t('downloading');
   }
 
   updateModal.style.display = 'flex';
@@ -516,10 +588,14 @@ function setUpdateProgress(percent, payload) {
 
   if (payload && Number.isFinite(payload.total) && payload.total > 0) {
     const speed = payload.bytesPerSecond ? ` — ${formatBytes(payload.bytesPerSecond)}/s` : '';
-    updateProgressText.textContent =
-      `Downloading update… ${pct}% (${formatBytes(payload.transferred)} / ${formatBytes(payload.total)})${speed}`;
+    updateProgressText.textContent = t('updateProgress', {
+      percent: pct,
+      transferred: formatBytes(payload.transferred),
+      total: formatBytes(payload.total),
+      speed
+    });
   } else {
-    updateProgressText.textContent = `Downloading update… ${pct}%`;
+    updateProgressText.textContent = t('downloading').replace('…', `… ${pct}%`);
   }
 }
 
@@ -582,7 +658,7 @@ function sanitizeReleaseNotesNode(node) {
 
 function renderReleaseNotesHtml(rawNotes) {
   const text = String(rawNotes || '').trim();
-  if (!text) return '<p style="color:var(--text-muted);">No release notes provided.</p>';
+  if (!text) return `<p style="color:var(--text-muted);">${escapeHtml(t('noReleaseNotes'))}</p>`;
 
   // Plain text (no HTML tags) - escape and preserve line breaks.
   if (!/<[a-z!/][\s\S]*>/i.test(text)) {
@@ -625,22 +701,22 @@ async function importSharedGame() {
   const input = document.getElementById('importLinkInput');
   const rawUrl = String(input?.value || '').trim();
   if (!rawUrl) {
-    log('Paste a Medo share link first.', 'log-danger');
+    log(t('pasteShare'), 'log-danger');
     return;
   }
 
   const preview = await launcherApi.previewSharedGame(rawUrl);
   if (!preview?.ok) {
-    log(preview?.error || 'Invalid share link.', 'log-danger');
+    log(t('invalidShare'), 'log-danger');
     return;
   }
 
-  const confirmed = window.confirm(`Add shared game "${preview.game.name}" to your library?`);
+  const confirmed = window.confirm(t('importConfirm', { name: preview.game.name }));
   if (!confirmed) return;
 
   const result = await launcherApi.importSharedGame(rawUrl);
   if (!result?.ok) {
-    log(result?.error || 'Could not import share link.', 'log-danger');
+    log(t('invalidShare'), 'log-danger');
     return;
   }
 
@@ -649,7 +725,9 @@ async function importSharedGame() {
   await refreshMyGames();
   const imported = myGames.find(g => makeGameKey(g) === makeGameKey(result.entry));
   if (imported) await selectGame(imported);
-  log(`${result.added ? 'Added' : 'Already in library'}: ${result.entry.name}.`, result.added ? 'log-success' : '');
+  log(result.added
+    ? t('added', { name: result.entry.name })
+    : t('alreadyInLibrary', { name: result.entry.name }), result.added ? 'log-success' : '');
 }
 
 // --- NEW DETECTION WARNING PROMISE HELPERS ---
@@ -693,8 +771,8 @@ async function renderNextModalPage() {
     page = await launcherApi.getDatabaseGames(modalState.filter, modalState.offset, modalState.limit);
   } catch (e) {
     modalState.loading = false;
-    modalListEl.innerHTML = `<div style="padding:20px; text-align:center;">Database not ready. Try again. (${String(e.message || e)})</div>`;
-      updateDetailsPanel();
+    modalListEl.innerHTML = `<div style="padding:20px; text-align:center;">${escapeHtml(t('databaseNotReady'))} (${escapeHtml(e.message || e)})</div>`;
+    updateDetailsPanel();
     return;
   }
 
@@ -709,10 +787,10 @@ async function renderNextModalPage() {
     div.className = 'modal-item';
     div.innerHTML = `
       <div class="modal-item-info">
-        <span class="modal-item-name">${game.name}</span>
-        <span class="modal-item-exe">${game.exe}</span>
+        <span class="modal-item-name">${escapeHtml(game.name)}</span>
+        <span class="modal-item-exe">${escapeHtml(game.exe)}</span>
       </div>
-      <div style="color:var(--brand); font-weight:bold; font-size:12px;">+ ADD</div>
+      <div style="color:var(--brand); font-weight:bold; font-size:12px;">${escapeHtml(t('addAction'))}</div>
     `;
 
     div.onclick = async () => {
@@ -720,7 +798,7 @@ async function renderNextModalPage() {
       if (game.usesNewDetection) {
         const choice = await promptDetectionWarning(game);
         if (!choice?.proceed) {
-          log(`Cancelled adding ${game.name}.`, 'log-entry');
+          log(t('cancelled', { name: game.name }), 'log-entry');
           return; // Abort silently
         }
         if (choice.exe) game.exe = choice.exe;
@@ -728,10 +806,14 @@ async function renderNextModalPage() {
       // ------------------------------------------
 
       const installed = await launcherApi.addGame(game);
-      log(`Installed ${installed.name} successfully.`, 'log-success');
+      const addedGame = installed?.entry || game;
+      log(installed?.added === false
+        ? t('alreadyInLibrary', { name: addedGame.name })
+        : t('addedFromDatabase', { name: addedGame.name }), 'log-success');
       closeModal();
       await refreshMyGames();
-      await selectGame(myGames[myGames.length - 1]);
+      const selected = myGames.find(item => makeGameKey(item) === makeGameKey(addedGame));
+      if (selected) await selectGame(selected);
     };
 
     frag.appendChild(div);
@@ -741,7 +823,7 @@ async function renderNextModalPage() {
 
   const hasAnyRows = modalListEl.querySelector('.modal-item') != null;
   if (!hasAnyRows && modalState.offset === 0) {
-    modalListEl.innerHTML = `<div style="padding:20px; text-align:center;">No results.</div>`;
+    modalListEl.innerHTML = `<div style="padding:20px; text-align:center;">${escapeHtml(t('noResults'))}</div>`;
   }
 
   modalState.hasMore = Boolean(page?.hasMore);
@@ -764,61 +846,87 @@ async function refreshMyGames() {
 async function ensureDatabaseSynced() {
   try {
     const r = await launcherApi.syncGameList();
-    log(r.updated ? 'Updated gamelist.json from Discord API.' : 'gamelist.json already up-to-date.', 'log-success');
+    if (!r?.ok) {
+      const key = r?.errorCode === 'timeout' ? 'databaseTimeout'
+        : r?.errorCode === 'network' ? 'databaseNetwork'
+          : r?.errorCode === 'http' ? 'databaseHttp'
+            : r?.errorCode === 'invalid-json' || r?.errorCode === 'invalid-schema' ? 'databaseInvalid'
+              : 'databaseStorage';
+      log(t(key), 'log-danger');
+      return;
+    }
+    log(r.updated ? t('databaseUpdateAtStartup') : t('databaseReadyAtStartup'), 'log-success');
   } catch (e) {
-    log(`Could not sync gamelist.json: ${String(e.message || e)}`, 'log-danger');
+    log(t('databaseNetwork'), 'log-danger');
   }
 }
 
 async function refreshDatabase() {
   if (!refreshBtn) return;
   refreshBtn.disabled = true;
-  refreshBtn.textContent = '↻ Refreshing...';
+  refreshBtn.textContent = `↻ ${t('databaseRefreshing')}`;
   try {
     const r = await launcherApi.syncGameList();
-    log(r.updated ? 'Game database updated.' : 'Game database is already up to date.', 'log-success');
+    if (!r?.ok) {
+      const key = r?.errorCode === 'timeout' ? 'databaseTimeout'
+        : r?.errorCode === 'network' ? 'databaseNetwork'
+          : r?.errorCode === 'http' ? 'databaseHttp'
+            : r?.errorCode === 'invalid-json' || r?.errorCode === 'invalid-schema' ? 'databaseInvalid'
+              : 'databaseStorage';
+      log(t(key), 'log-danger');
+      return;
+    }
+    log(r.updated ? t('databaseUpdated') : t('databaseUnchanged'), 'log-success');
   } catch (e) {
-    log(`Database refresh failed: ${String(e.message || e)}`, 'log-danger');
+    log(t('databaseRefreshFailed'), 'log-danger');
   } finally {
     refreshBtn.disabled = false;
-    refreshBtn.textContent = '↻ Refresh Database';
+    refreshBtn.textContent = `↻ ${t('refresh')}`;
   }
 }
 
 launchBtn.addEventListener('click', async () => {
-  if (!selectedGame) return;
+  if (!selectedGame || launchBusy) return;
+  launchBusy = true;
+  launchBtn.disabled = true;
+  const game = selectedGame;
+  const selectedKey = makeGameKey(game);
+  const currentlyRunning = isGameRunning(game);
+  document.getElementById('launchBtnText').textContent = t(currentlyRunning ? 'stopping' : 'starting');
 
-  const selectedKey = makeGameKey(selectedGame);
-  const currentlyRunning = isGameRunning(selectedGame);
-
-  if (!currentlyRunning) {
-    launchBtn.classList.add('running');
-    document.getElementById('launchBtnText').innerText = t('stop');
-    document.getElementById('playIcon').style.display = 'none';
-    document.getElementById('stopIcon').style.display = 'block';
-
-    statusDot.style.backgroundColor = 'var(--success)';
-    statusDot.style.color = 'var(--success)';
-    statusText.innerText = t('playing');
-    statusText.style.color = 'var(--success)';
-
-    const r = await launcherApi.launchGame(selectedGame);
-    if (r.ok) {
-      runningGames.add(selectedKey);
+  try {
+    if (!currentlyRunning) {
+      const result = await launcherApi.launchGame(game);
+      if (!result?.ok) {
+        log(t('launchFailed', { name: game.name, error: result?.error || 'unknown error' }), 'log-danger');
+        return;
+      }
+      const activeGames = await launcherApi.getRunningGames();
+      runningGames = new Set((activeGames || []).map(item => item.gameKey));
       renderMainList(searchInput.value);
-      syncSelectedGameLaunchState();
-      log(`Process started: ${selectedGame.exe}`, 'log-success');
+      log(result.alreadyRunning
+        ? t('alreadyRunning', { name: game.name })
+        : t('processStarted', { name: game.name }), 'log-success');
     } else {
-      log(`Failed to launch: ${r.error}`, 'log-danger');
-      launchBtn.classList.remove('running');
-      resetHeroState();
+      const result = await launcherApi.stopGame(game);
+      if (!result?.ok) {
+        log(t('processStopFailed', { name: game.name }), 'log-danger');
+        return;
+      }
+      runningGames.delete(selectedKey);
+      renderMainList(searchInput.value);
+      log(t('processTerminated'), 'log-success');
     }
-  } else {
-    await launcherApi.stopGame(selectedGame);
-    runningGames.delete(selectedKey);
-    renderMainList(searchInput.value);
+  } catch (error) {
+    log(t(currentlyRunning ? 'processStopFailed' : 'launchFailed', {
+      name: game.name,
+      error: error?.message || error || 'unknown error'
+    }), 'log-danger');
+  } finally {
+    launchBusy = false;
+    launchBtn.disabled = false;
     syncSelectedGameLaunchState();
-    log('Process terminated.', 'log-danger');
+    renderMainList(searchInput.value);
   }
 });
 
@@ -846,14 +954,14 @@ downloadModal?.addEventListener('click', (e) => {
 copyDownloadLinkBtn?.addEventListener('click', async () => {
   await navigator.clipboard.writeText(DOWNLOAD_URL);
   const old = copyDownloadLinkBtn.textContent;
-  copyDownloadLinkBtn.textContent = 'Copied';
+  copyDownloadLinkBtn.textContent = t('downloadCopyDone');
   setTimeout(() => { copyDownloadLinkBtn.textContent = old; }, 1400);
 });
 openDownloadLinkBtn?.addEventListener('click', () => launcherApi.openExternalUrl(DOWNLOAD_URL));
 shareOpenBtn?.addEventListener('click', async () => {
   if (!shareLinkInput?.value) return;
   const result = await launcherApi.openShareLink(shareLinkInput.value);
-  if (!result?.ok) log('Could not open share link.', 'log-danger');
+  if (!result?.ok) log(t('invalidShare'), 'log-danger');
 });
 shareCopyBtn?.addEventListener('click', async () => {
   if (!sharedGameForModal) return;
@@ -912,16 +1020,16 @@ if (updateInstallBtn) {
     updateUiState.installing = true;
     updateInstallBtn.disabled = true;
     updateRemindBtn.disabled = true;
-    updateInstallBtn.textContent = 'Downloading…';
+    updateInstallBtn.textContent = t('downloading');
     setUpdateProgress(0, null);
 
     const r = await launcherApi.installUpdate();
     if (!r?.ok) {
-      log(`Update failed: ${r?.error || 'unknown error'}`, 'log-danger');
+      log(t('updateError', { error: r?.error || 'unknown error' }), 'log-danger');
       updateUiState.installing = false;
       updateInstallBtn.disabled = false;
       updateRemindBtn.disabled = false;
-      updateInstallBtn.textContent = 'Install update';
+      updateInstallBtn.textContent = t('installUpdate');
       if (updateProgressWrap) updateProgressWrap.style.display = 'none';
     }
   });
@@ -941,7 +1049,7 @@ launcherApi.onGameExited((payload = {}) => {
   renderMainList(searchInput.value);
   if (selectedGame && makeGameKey(selectedGame) === exitedKey) {
     syncSelectedGameLaunchState();
-    log('Process exited.', 'log-danger');
+    log(t('processExited'), 'log-danger');
   }
   updateDetailsPanel();
 });
@@ -952,6 +1060,11 @@ launcherApi.onGameExited((payload = {}) => {
 
   const info = await launcherApi.getAppInfo();
   if (info) {
+    if (info.language === 'ar' || info.language === 'en') {
+      currentLanguage = info.language;
+      localStorage.setItem('medo.language', currentLanguage);
+      applyLanguage();
+    }
     if (currentVersion) currentVersion.textContent = `v${info.version}`;
     if (developerName) developerName.textContent = `${t('developerPrefix')}: ${info.author}`;
     if (!info.welcomeSeen && welcomeModal) welcomeModal.style.display = 'flex';
@@ -961,6 +1074,8 @@ launcherApi.onGameExited((payload = {}) => {
     if (welcomeModal) welcomeModal.style.display = 'none';
   });
 
+  const activeGames = await launcherApi.getRunningGames();
+  runningGames = new Set((activeGames || []).map(game => game.gameKey));
   await ensureDatabaseSynced();
   await refreshMyGames();
   renderMainList('');
@@ -969,7 +1084,7 @@ launcherApi.onGameExited((payload = {}) => {
   if (launcherApi.onUpdateAvailable) {
     launcherApi.onUpdateAvailable((payload) => {
       showUpdateModal(payload);
-      log('Update available.', 'log-success');
+      log(t('updateAvailable'), 'log-success');
     });
   }
   launcherApi.onUpdateStatus?.((status) => {
@@ -984,7 +1099,7 @@ launcherApi.onGameExited((payload = {}) => {
     const result = await launcherApi.checkForUpdates();
     if (!result?.ok) {
       lastUpdateState = 'error';
-      if (updateStatusText) updateStatusText.textContent = result.error || t('updateUnavailable');
+      if (updateStatusText) updateStatusText.textContent = t('updateUnavailable');
     }
   });
   if (launcherApi.onUpdateProgress) {
@@ -995,16 +1110,20 @@ launcherApi.onGameExited((payload = {}) => {
   if (launcherApi.onUpdateDownloaded) {
     launcherApi.onUpdateDownloaded(async () => {
       setUpdateProgress(100, null);
-      if (updateProgressText) updateProgressText.textContent = 'Download complete. Installing…';
-      if (updateInstallBtn) updateInstallBtn.textContent = 'Installing…';
-      log('Update downloaded. Installing…', 'log-success');
+      if (updateProgressText) updateProgressText.textContent = t('downloadComplete');
+      if (updateInstallBtn) updateInstallBtn.textContent = t('installing');
+      log(t('downloadComplete'), 'log-success');
       // Opens the downloaded installer and quits this app so it can run.
       await launcherApi.quitAndInstallUpdate();
     });
   }
   if (launcherApi.onUpdateError) {
     launcherApi.onUpdateError((payload) => {
-      log(`Update error: ${payload?.message || 'unknown error'}`, 'log-danger');
+      log(t('updateError', { error: payload?.message || 'unknown error' }), 'log-danger');
     });
   }
 })();
+  document.getElementById('refreshBtn')?.setAttribute('title', t('refresh'));
+  document.getElementById('checkUpdateBtn')?.setAttribute('title', t('checkUpdates'));
+  document.getElementById('downloadLatestBtn')?.setAttribute('title', t('downloadTitle'));
+  document.getElementById('languageBtn')?.setAttribute('title', currentLanguage === 'ar' ? 'تغيير اللغة' : 'Change language');

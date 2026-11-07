@@ -1,7 +1,7 @@
 {
   "name": "medo-game-launcher",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Premium Discord Activity Launcher",
   "author": "mghonem2500-tech",
   "repository": {
@@ -14,6 +14,10 @@
     "start": "electron .",
     "dev": "electron .",
     "sync:gamelist": "node ./scripts/sync-gamelist.js",
+    "test": "node --test",
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/game-list.js && node --check src/persistence.js && node --check src/renderer/renderer.js && node --check scripts/sync-gamelist.js && node --check scripts/validate-package.js && npm test",
+    "validate:template": "node ./scripts/validate-package.js",
+    "validate:package": "node ./scripts/validate-package.js --packaged",
     "build:dummy": "dotnet build ../src/DummyGame/DummyGame.csproj -c Release",
     "build:launcher": "dotnet build ../src/Launcher/Launcher.csproj -c Release",
     "dist": "electron-builder --win nsis --publish never",
@@ -70,7 +74,9 @@
     "protocols": [
       {
         "name": "Medo Game Launcher Share",
-        "schemes": ["medo-launcher"]
+        "schemes": [
+          "medo-launcher"
+        ]
       }
     ],
     "nsis": {
@@ -80,7 +86,7 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-    "shortcutName": "Medo Game Launcher"
+      "shortcutName": "Medo Game Launcher"
     }
   }
 }

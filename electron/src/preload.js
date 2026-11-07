@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('launcherApi', {
   syncGameList: () => ipcRenderer.invoke('launcher/syncGameList'),
   getDatabaseGames: (filter, offset, limit) => ipcRenderer.invoke('launcher/getDatabaseGames', { filter, offset, limit }),
   getMyGames: () => ipcRenderer.invoke('launcher/getMyGames'),
+  getRunningGames: () => ipcRenderer.invoke('launcher/getRunningGames'),
   addGame: (game) => ipcRenderer.invoke('launcher/addGame', game),
   toggleFavorite: (appId, exe) => ipcRenderer.invoke('launcher/toggleFavorite', { appId, exe }),
   deleteGame: (appId, exe) => ipcRenderer.invoke('launcher/deleteGame', { appId, exe }),

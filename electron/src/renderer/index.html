@@ -12,7 +12,7 @@
     <div class="intro-orbit orbit-two"></div>
     <div class="intro-logo-wrap"><img src="logo.png" alt="Medo Game Launcher" class="intro-logo" /></div>
     <div class="intro-title">MEDO GAME <span>LAUNCHER</span></div>
-    <div class="intro-line"><span></span><b>INITIALIZING GAME LIBRARY</b><span></span></div>
+    <div class="intro-line"><span></span><b id="introStatus">INITIALIZING GAME LIBRARY</b><span></span></div>
   </div>
   <div class="title-bar">
     <div class="brand-lockup"><img src="logo.png" alt="Medo" class="brand-logo" /><span class="brand-copy"><strong>Medo Game <em>Launcher</em></strong><small>Discord Fake Game Launcher</small></span></div>
@@ -105,8 +105,8 @@
       </div>
 
       <div class="console-area">
-        <div class="console-header"><span><b class="terminal-mark">›_</b> System Log</span><span class="live-label">LIVE ACTIVITY</span></div><div class="console-logs" id="logArea">
-          <div class="log-entry"><span class="log-time">[System]</span> Ready.</div>
+        <div class="console-header"><span><b class="terminal-mark">›_</b> <span id="systemLogTitle">System Log</span></span><span class="live-label" id="liveActivityText">LIVE ACTIVITY</span></div><div class="console-logs" id="logArea">
+          <div class="log-entry"><span class="log-time">[System]</span> <span id="initialReadyLog">Ready.</span></div>
         </div>
       </div>
     </div>
@@ -115,7 +115,7 @@
   <div class="modal-overlay" id="addGameModal">
     <div class="modal-container">
       <div class="modal-header">
-        <span>Database</span>
+        <span id="addModalTitle">Game Database</span>
         <svg style="cursor:pointer;" id="closeModalBtn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </div>
       <div class="modal-body">
@@ -137,7 +137,7 @@
   <div class="modal-overlay" id="shareModal" style="display:none;">
     <div class="modal-container share-modal-container" style="width: 560px;">
       <div class="modal-header">
-        <span>Game Shared Successfully</span>
+        <span id="shareModalTitle">Game Shared Successfully</span>
         <svg style="cursor:pointer;" id="closeShareModalBtn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </div>
       <div class="modal-body share-modal-body">
@@ -217,7 +217,7 @@
             <line x1="12" y1="9" x2="12" y2="13"></line>
             <line x1="12" y1="17" x2="12.01" y2="17"></line>
           </svg>
-          Detection System Warning
+          <span id="warningTitle">Detection System Warning</span>
         </span>
         <svg style="cursor:pointer;" id="warningCloseBtn" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -225,14 +225,14 @@
         </svg>
       </div>
       <div class="modal-body">
-        <div style="color: var(--text-normal); font-weight: 600; margin-bottom: 8px;">This program uses Discord's new detection mechanism.</div>
+        <div id="detectionIntro" style="color: var(--text-normal); font-weight: 600; margin-bottom: 8px;">This app uses Discord’s newer detection method.</div>
         <div style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; line-height: 1.4;">
-          Discord did not provide an explicit executable filename for this program in their database.
+          <span id="detectionNoExe">Discord did not provide an executable filename for this app.</span>
         </div>
         <div style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
-          The launcher will use a fallback executable, but it may not work properly for tracking quests.
+          <span id="detectionFallback">A fallback filename will be used; game tracking may not work correctly.</span>
         </div>
-        <label for="customExeInput" style="display:block; color:var(--text-muted); font-size:12px; margin-bottom:6px;">Executable filename (optional)</label>
+        <label id="executableOptionalLabel" for="customExeInput" style="display:block; color:var(--text-muted); font-size:12px; margin-bottom:6px;">Executable filename (optional)</label>
         <input class="search-input" id="customExeInput" placeholder="Example: FC27.exe" style="margin-bottom:16px; padding-left:12px;" />
         <div style="display:flex; gap:10px; justify-content:flex-end;">
           <button class="btn-main" style="background-color: transparent; border: 1px solid var(--text-muted); color: var(--text-normal);" id="warningCancelBtn">Cancel</button>
@@ -242,7 +242,6 @@
     </div>
   </div>
 
-  <script type="application/json" id="arabicTranslations">{"welcome":"مرحباً بيك في Medo Game Launcher","selectHint":"اختار لعبة من المكتبة لعرض تفاصيلها","ready":"جاهز","playing":"تعمل الآن","launch":"تشغيل اللعبة","stop":"إيقاف اللعب","details":"التفاصيل","appId":"معرّف التطبيق","executable":"الملف التنفيذي","favorite":"المفضلة","running":"الحالة","systemLog":"سجل النظام","live":"نشاط مباشر","importTitle":"هل لديك رابط مشاركة؟","import":"استيراد","shareCopied":"تم نسخ رابط المشاركة","shareHint":"أرسل الرابط للمستخدم الآخر ليضعه داخل إضافة لعبة.","copyAgain":"نسخ الرابط مرة أخرى","openLink":"فتح الرابط","checkUpdates":"التحقق من التحديثات","checking":"جاري التحقق من التحديثات...","current":"البرنامج محدّث","updateFailed":"فشل التحقق من التحديث","language":"English","welcomeTitle":"مرحباً بيك في Medo Game Launcher","welcomeLead":"اختار لعبتك وشغّلها بضغطة واحدة.","welcomeCard":"كل حاجة جاهزة.. يلا نبدأ!","welcomeCardHint":"ابحث عن لعبة من إضافة لعبة أو الصق رابط مشاركة من صديق.","start":"ابدأ الآن","addGame":"إضافة لعبة","refresh":"تحديث قاعدة البيانات","library":"مكتبة الألعاب","filter":"تصفية المكتبة...","search":"ابحث عن لعبة..."}</script>
   <script src="renderer.js"></script>
 </body>
 </html>

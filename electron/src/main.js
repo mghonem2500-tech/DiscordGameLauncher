@@ -1,12 +1,17 @@
-const { app, BrowserWindow, ipcMain, shell, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, clipboard, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
+const { promisify } = require('util');
+const { writeJsonAtomic, readJsonWithBackup, replaceAtomically } = require('./persistence');
+const { parseGameList } = require('./game-list');
 const { makeGameKey } = require('./launcher-state');
+
+const execFileAsync = promisify(execFile);
 
 const DISCORD_DETECTABLE_URL = 'https://discord.com/api/applications/detectable';
 const MEDO_USER_DATA_DIR = 'MedoGameLauncher';
@@ -61,6 +66,7 @@ function getUserDataPaths() {
     welcomePath: path.join(userData, 'welcome-seen.json'),
     languagePath: path.join(userData, 'language.json'),
     gameListPath: path.join(userData, 'gamelist.json'),
+    runningGamesPath: path.join(userData, 'running-games.json'),
     gamesRoot: path.join(userData, 'games')
   };
 }
@@ -184,82 +190,81 @@ function pageDatabaseGames({ filter, offset, limit }) {
 }
 
 async function readJsonIfExists(filePath, fallback) {
-  try {
-    const raw = await fsp.readFile(filePath, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
+  return readJsonWithBackup(filePath, fallback);
 }
 
-async function writeJson(filePath, data) {
-  await fsp.writeFile(filePath, JSON.stringify(data, null, 2) + os.EOL, 'utf8');
+async function writeJson(filePath, data, { backup = true } = {}) {
+  await writeJsonAtomic(filePath, data, { backupPath: backup ? `${filePath}.bak` : null });
 }
 
 async function readMyGamesList(paths) {
-  try {
-    const parsed = JSON.parse(await fsp.readFile(paths.myGamesPath, 'utf8'));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    try {
-      const backup = JSON.parse(await fsp.readFile(paths.myGamesBackupPath, 'utf8'));
-      if (Array.isArray(backup)) {
-        await writeJson(paths.myGamesPath, backup);
-        return backup;
-      }
-    } catch { /* no recoverable backup */ }
-    return [];
-  }
-}
-
-async function backupMyGames(paths) {
-  try {
-    if (fs.existsSync(paths.myGamesPath)) await fsp.copyFile(paths.myGamesPath, paths.myGamesBackupPath);
-  } catch { /* backup is best effort */ }
+  return readJsonWithBackup(paths.myGamesPath, [], {
+    backupPath: paths.myGamesBackupPath,
+    validate: Array.isArray
+  });
 }
 
 async function syncGameList(gameListPath) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
-  let res;
   try {
-    res = await fetch(DISCORD_DETECTABLE_URL, {
-    headers: {
-      'User-Agent': 'DiscordFakeGameLauncherUI/0.1.0',
-      'Accept': 'application/json'
-    }, signal: controller.signal });
+    let res;
+    try {
+      res = await fetch(DISCORD_DETECTABLE_URL, {
+        headers: {
+          'User-Agent': 'DiscordFakeGameLauncherUI/0.1.0',
+          'Accept': 'application/json'
+        },
+        signal: controller.signal
+      });
+    } catch (error) {
+      const timeoutError = new Error(controller.signal.aborted
+        ? 'The game database request timed out.'
+        : 'Could not connect to the game database. Check your internet connection.');
+      timeoutError.code = controller.signal.aborted ? 'timeout' : 'network';
+      throw timeoutError;
+    }
+
+    if (!res.ok) {
+      const error = new Error(`The game database returned HTTP ${res.status}.`);
+      error.code = 'http';
+      error.status = res.status;
+      throw error;
+    }
+
+    let text;
+    try {
+      text = (await res.text()).trim();
+      parseGameList(text);
+    } catch (error) {
+      if (!error.code) {
+        error.code = controller.signal.aborted ? 'timeout' : 'network';
+        error.message = controller.signal.aborted
+          ? 'The game database request timed out while downloading data.'
+          : 'Could not download the game database.';
+      }
+      throw error;
+    }
+
+    let localTrimmed = null;
+    try {
+      const local = (await fsp.readFile(gameListPath, 'utf8')).trim();
+      parseGameList(local);
+      localTrimmed = local;
+    } catch {
+      // A corrupt local list is replaced only after the remote response validates.
+    }
+
+    if (localTrimmed === text) return { updated: false };
+
+    await replaceAtomically(gameListPath, `${text}${os.EOL}`, `${gameListPath}.bak`);
+    return { updated: true };
+  } catch (error) {
+    if (!error.code) error.code = 'storage';
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
-
-  if (!res.ok) {
-    throw new Error(`Discord API error: ${res.status} ${res.statusText}`);
-  }
-
-  const text = (await res.text()).trim();
-
-  let localTrimmed = null;
-  try {
-    localTrimmed = (await fsp.readFile(gameListPath, 'utf8')).trim();
-  } catch {
-    localTrimmed = null;
-  }
-
-  if (localTrimmed !== text) {
-    // Optional backup
-    if (localTrimmed != null) {
-      try {
-        await fsp.copyFile(gameListPath, gameListPath + '.bak');
-      } catch {
-        // ignore
-      }
-    }
-
-    await fsp.writeFile(gameListPath, text + os.EOL, 'utf8');
-    return { updated: true };
-  }
-
-  return { updated: false };
 }
 
 
@@ -324,19 +329,27 @@ async function ensureFakeExeForGame(game, paths) {
 
   ensureDirSync(paths.gamesRoot);
 
-  const appIdFolder = game.appId ? String(game.appId) : sanitizeFolderName(game.name);
+  const rawAppIdFolder = game.appId ? String(game.appId) : sanitizeFolderName(game.name);
+  const appIdFolder = sanitizeFolderName(rawAppIdFolder).replace(/[. ]+$/g, '') || 'UnknownApp';
 
   const exeRelPath = normalizeExeRelPath(game.exe);
-  if (!exeRelPath || path.isAbsolute(exeRelPath) || exeRelPath.includes(`..${path.sep}`) || exeRelPath.includes(`..\\`)) {
+  if (!exeRelPath || path.isAbsolute(exeRelPath) || exeRelPath.split(/[\\/]+/).some(part => part === '..' || part === '.')) {
     throw new Error('Invalid executable path supplied by the game database.');
   }
   const exeFolderPart = path.dirname(exeRelPath) === '.' ? '' : path.dirname(exeRelPath);
   const exeFileName = path.basename(exeRelPath);
 
-  const gameFolder = path.join(paths.gamesRoot, appIdFolder, exeFolderPart);
-  ensureDirSync(gameFolder);
+  const gamesRoot = path.resolve(paths.gamesRoot);
+  const gameFolder = path.resolve(gamesRoot, appIdFolder, exeFolderPart);
+  if (!gameFolder.startsWith(`${gamesRoot}${path.sep}`)) {
+    throw new Error('The game path resolves outside the launcher games folder.');
+  }
+  const destExePath = path.resolve(gameFolder, exeFileName);
+  if (!destExePath.startsWith(`${gameFolder}${path.sep}`)) {
+    throw new Error('The executable path resolves outside the selected game folder.');
+  }
 
-  const destExePath = path.join(gameFolder, exeFileName);
+  ensureDirSync(gameFolder);
 
   // Always refresh the fake executable from the bundled template. Existing
   // users may have an older DummyGame window cached in their userData folder.
@@ -362,8 +375,146 @@ async function ensureFakeExeForGame(game, paths) {
 
 let mainWindow = null;
 let runningProcesses = new Map();
+const inFlightLaunches = new Set();
 
 let pendingUpdateInfo = null;
+let registryWriteQueue = Promise.resolve();
+let allowWindowClose = false;
+let closePromptActive = false;
+
+function processRecordForStorage(gameKey, record) {
+  return {
+    gameKey,
+    appId: String(record.game?.appId || ''),
+    exe: String(record.game?.exe || ''),
+    name: String(record.game?.name || ''),
+    pid: Number(record.pid),
+    exePath: String(record.exePath || ''),
+    startedAt: String(record.startedAt || new Date().toISOString())
+  };
+}
+
+function persistRunningGames() {
+  const paths = getUserDataPaths();
+  const snapshot = [...runningProcesses.entries()].map(([key, record]) => processRecordForStorage(key, record));
+  registryWriteQueue = registryWriteQueue
+    .catch(() => {})
+    .then(() => writeJson(paths.runningGamesPath, snapshot));
+  return registryWriteQueue;
+}
+
+async function getWindowsProcessExecutablePath(pid) {
+  const safePid = Number(pid);
+  if (!Number.isSafeInteger(safePid) || safePid <= 0) return { status: 'missing' };
+  const command = `$ErrorActionPreference='Stop'; $p=Get-CimInstance -ClassName Win32_Process -Filter 'ProcessId = ${safePid}'; if ($p) { [Console]::Out.Write($p.ExecutablePath) }`;
+  try {
+    const { stdout } = await execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
+      windowsHide: true,
+      timeout: 5000,
+      maxBuffer: 1024 * 1024
+    });
+    const exePath = String(stdout || '').trim();
+    return exePath ? { status: 'found', exePath } : { status: 'missing' };
+  } catch {
+    return { status: 'unknown' };
+  }
+}
+
+function pathsEqual(left, right) {
+  return path.resolve(String(left)).toLowerCase() === path.resolve(String(right)).toLowerCase();
+}
+
+async function restoreRunningGames() {
+  if (process.platform !== 'win32') return;
+  const paths = getUserDataPaths();
+  const records = await readJsonWithBackup(paths.runningGamesPath, [], { validate: Array.isArray });
+  const gamesRoot = path.resolve(paths.gamesRoot);
+  let changed = false;
+
+  for (const record of records) {
+    const game = { appId: String(record?.appId || ''), exe: String(record?.exe || ''), name: String(record?.name || '') };
+    const gameKey = makeGameKey(game);
+    const pid = Number(record?.pid);
+    const exePath = String(record?.exePath || '');
+    if (!gameKey || !Number.isSafeInteger(pid) || pid <= 0 || !path.isAbsolute(exePath) ||
+        !path.resolve(exePath).toLowerCase().startsWith(`${gamesRoot}${path.sep}`.toLowerCase())) {
+      changed = true;
+      continue;
+    }
+
+    const processInfo = await getWindowsProcessExecutablePath(pid);
+    if (processInfo.status === 'missing' ||
+        (processInfo.status === 'found' && !pathsEqual(processInfo.exePath, exePath))) {
+      changed = true;
+      continue;
+    }
+
+    runningProcesses.set(gameKey, {
+      proc: null,
+      pid,
+      exePath,
+      game,
+      startedAt: String(record.startedAt || new Date().toISOString()),
+      recovered: true,
+      verificationPending: processInfo.status === 'unknown'
+    });
+  }
+
+  if (changed) await persistRunningGames();
+}
+
+async function stopOneGame(gameKey, record) {
+  if (!record) return true;
+  const pid = Number(record.pid || record.proc?.pid);
+  if (process.platform === 'win32' && Number.isSafeInteger(pid) && pid > 0) {
+    if (record.recovered) {
+      const processInfo = await getWindowsProcessExecutablePath(pid);
+      if (processInfo.status === 'missing') {
+        if (runningProcesses.get(gameKey) === record) runningProcesses.delete(gameKey);
+        await persistRunningGames();
+        return true;
+      }
+      if (processInfo.status !== 'found' || !pathsEqual(processInfo.exePath, record.exePath)) return false;
+    }
+
+    try {
+      await execFileAsync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], {
+        windowsHide: true,
+        timeout: 5000
+      });
+    } catch {
+      const processInfo = await getWindowsProcessExecutablePath(pid);
+      if (processInfo.status !== 'missing') return false;
+    }
+  } else if (record.proc && record.proc.exitCode === null && !record.proc.killed) {
+    try {
+      record.proc.kill();
+    } catch {
+      if (record.proc.exitCode === null) return false;
+    }
+  }
+
+  if (runningProcesses.get(gameKey) === record) runningProcesses.delete(gameKey);
+  await persistRunningGames();
+  return true;
+}
+
+async function stopAllGames() {
+  const failed = [];
+  for (const [gameKey, record] of [...runningProcesses.entries()]) {
+    if (!await stopOneGame(gameKey, record)) failed.push(record.game?.name || gameKey);
+  }
+  return failed;
+}
+
+function getRunningGamesForUi() {
+  return [...runningProcesses.entries()].map(([gameKey, record]) => ({
+    gameKey,
+    appId: String(record.game?.appId || ''),
+    exe: String(record.game?.exe || ''),
+    name: String(record.game?.name || '')
+  }));
+}
 
 function coerceReleaseNotesToText(releaseNotes) {
   if (!releaseNotes) return '';
@@ -462,6 +613,56 @@ async function createWindow() {
     }
   });
 
+  mainWindow.on('close', event => {
+    if (allowWindowClose || runningProcesses.size === 0) return;
+    event.preventDefault();
+    if (closePromptActive) return;
+    closePromptActive = true;
+
+    void (async () => {
+      const languageState = await readJsonIfExists(getUserDataPaths().languagePath, {});
+      const arabic = languageState?.language === 'ar';
+      const response = await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: arabic ? 'جلسات ألعاب قيد التشغيل' : 'Game sessions are running',
+        message: arabic
+          ? 'هناك جلسات ألعاب وهمية ما زالت تعمل. ماذا تريد أن يحدث عند إغلاق المشغّل؟'
+          : 'Fake game sessions are still running. Choose what should happen when the launcher closes.',
+        buttons: arabic
+          ? ['اتركها تعمل وأغلق', 'أوقف الألعاب وأغلق', 'إلغاء']
+          : ['Keep running and close', 'Stop games and close', 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true
+      });
+
+      if (response.response === 2) return;
+      if (response.response === 1) {
+        const failed = await stopAllGames();
+        if (failed.length) {
+          await dialog.showMessageBox(mainWindow, {
+            type: 'error',
+            title: arabic ? 'تعذر إيقاف بعض الجلسات' : 'Could not stop every session',
+            message: arabic
+              ? `تعذر إيقاف: ${failed.join('، ')}. سيظل المشغّل مفتوحًا.`
+              : `Could not stop: ${failed.join(', ')}. The launcher will remain open.`,
+            buttons: [arabic ? 'حسنًا' : 'OK']
+          });
+          return;
+        }
+      } else {
+        await persistRunningGames();
+      }
+
+      allowWindowClose = true;
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+    })().catch(error => {
+      console.error('Could not complete the close flow:', error);
+    }).finally(() => {
+      closePromptActive = false;
+    });
+  });
+
   await mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
@@ -485,7 +686,6 @@ async function addGameEntry(game) {
   if (existing) return { entry: existing, added: false };
 
   safeList.push(entry);
-  await backupMyGames(paths);
   await writeJson(paths.myGamesPath, safeList);
   return { entry, added: true };
 }
@@ -527,6 +727,7 @@ app.whenReady().then(async () => {
   // This prevents shared libraries, cached game files and settings.
   app.setPath('userData', path.join(app.getPath('appData'), MEDO_USER_DATA_DIR));
   if (process.platform === 'win32') app.setAsDefaultProtocolClient(SHARE_PROTOCOL);
+  await restoreRunningGames();
   await createWindow();
 
   for (const shareUrl of pendingSharedUrls.splice(0)) await handleSharedGameUrl(shareUrl);
@@ -565,10 +766,17 @@ ipcMain.handle('app/openExternalUrl', async (_evt, rawUrl) => {
 ipcMain.handle('launcher/syncGameList', async () => {
   const paths = getUserDataPaths();
   ensureDirSync(paths.userData);
-  const result = await syncGameList(paths.gameListPath);
-  await loadDatabaseCache(paths.gameListPath);
-  return { ...result, gameListPath: paths.gameListPath };
+  try {
+    const result = await syncGameList(paths.gameListPath);
+    await loadDatabaseCache(paths.gameListPath);
+    return { ok: true, ...result, gameListPath: paths.gameListPath };
+  } catch (error) {
+    await loadDatabaseCache(paths.gameListPath);
+    return { ok: false, errorCode: error.code || 'network', status: error.status || 0 };
+  }
 });
+
+ipcMain.handle('launcher/getRunningGames', () => getRunningGamesForUi());
 
 ipcMain.handle('launcher/getDatabaseGames', async (_evt, { filter, offset, limit } = {}) => {
   const paths = getUserDataPaths();
@@ -638,7 +846,8 @@ ipcMain.handle('launcher/importSharedGame', async (_evt, rawUrl) => {
 ipcMain.handle('app/getInfo', async () => {
   const paths = getUserDataPaths();
   const welcomeSeen = Boolean((await readJsonIfExists(paths.welcomePath, {}))?.seen);
-  return { name: 'Medo Game Launcher', version: app.getVersion(), author: 'mohamed ghonem', welcomeSeen };
+  const language = (await readJsonIfExists(paths.languagePath, {}))?.language === 'ar' ? 'ar' : 'en';
+  return { name: 'Medo Game Launcher', version: app.getVersion(), author: 'mohamed ghonem', welcomeSeen, language };
 });
 
 ipcMain.handle('app/completeWelcome', async () => {
@@ -690,7 +899,6 @@ ipcMain.handle('launcher/deleteGame', async (_evt, { appId, exe }) => {
   ));
 
   if (filtered.length !== before) {
-    await backupMyGames(paths);
     await writeJson(paths.myGamesPath, filtered);
   }
 
@@ -765,63 +973,92 @@ ipcMain.handle('launcher/launchGame', async (_evt, game) => {
   ensureDirSync(paths.userData);
 
   const gameKey = makeGameKey(game);
+  if (!gameKey) return { ok: false, error: 'Invalid game entry.' };
+  if (inFlightLaunches.has(gameKey)) return { ok: true, gameKey, alreadyRunning: true, starting: true };
   const existing = gameKey ? runningProcesses.get(gameKey) : null;
-  if (existing && !existing.killed && existing.exitCode === null) {
-    return { ok: true, exePath: existing.spawnargs?.[0] || '', gameKey, alreadyRunning: true };
-  }
+  if (existing) return { ok: true, exePath: existing.exePath, gameKey, alreadyRunning: true };
 
-  const { destExePath, workingDirectory } = await ensureFakeExeForGame(game, paths);
-
-  const displayName = String(game?.name || path.basename(destExePath));
-  const languageState = await readJsonIfExists(paths.languagePath, {});
-  const language = languageState?.language === 'ar' ? 'ar' : 'en';
-
-  const proc = spawn(destExePath, [displayName], {
-    cwd: workingDirectory,
-    env: { ...process.env, MEDO_LANGUAGE: language },
-    windowsHide: false,
-    stdio: 'ignore'
-  });
-
-  runningProcesses.set(gameKey, proc);
-
-  proc.once('exit', () => {
-    runningProcesses.delete(gameKey);
-    mainWindow?.webContents.send('launcher/gameExited', {
-      gameKey,
-      appId: String(game?.appId || ''),
-      exe: String(game?.exe || ''),
-      name: String(game?.name || '')
+  inFlightLaunches.add(gameKey);
+  try {
+    const { destExePath, workingDirectory } = await ensureFakeExeForGame(game, paths);
+    const displayName = String(game?.name || path.basename(destExePath));
+    const languageState = await readJsonIfExists(paths.languagePath, {});
+    const language = languageState?.language === 'ar' ? 'ar' : 'en';
+    const proc = spawn(destExePath, [displayName], {
+      cwd: workingDirectory,
+      env: { ...process.env, MEDO_LANGUAGE: language },
+      windowsHide: false,
+      stdio: 'ignore',
+      detached: process.platform === 'win32'
     });
-  });
 
-  return { ok: true, exePath: destExePath, gameKey };
+    const record = {
+      proc,
+      pid: 0,
+      exePath: destExePath,
+      game: {
+        appId: String(game?.appId || ''),
+        exe: String(game?.exe || ''),
+        name: displayName
+      },
+      startedAt: new Date().toISOString(),
+      recovered: false
+    };
+    let didSpawn = false;
+    let finished = false;
+    const finishRecord = () => {
+      if (!didSpawn || finished) return;
+      finished = true;
+      if (runningProcesses.get(gameKey) === record) {
+        runningProcesses.delete(gameKey);
+        void persistRunningGames().catch(error => console.error('Could not save running-game state:', error));
+      }
+      mainWindow?.webContents.send('launcher/gameExited', {
+        gameKey,
+        appId: record.game.appId,
+        exe: record.game.exe,
+        name: record.game.name
+      });
+    };
+
+    proc.once('exit', finishRecord);
+    proc.on('error', () => finishRecord());
+
+    await new Promise((resolve, reject) => {
+      proc.once('spawn', () => {
+        didSpawn = true;
+        record.pid = Number(proc.pid) || 0;
+        runningProcesses.set(gameKey, record);
+        resolve();
+      });
+      proc.once('error', reject);
+    });
+
+    proc.unref();
+    await persistRunningGames();
+    return { ok: true, exePath: destExePath, gameKey };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error || 'Could not start the game process.') };
+  } finally {
+    inFlightLaunches.delete(gameKey);
+  }
 });
 
 ipcMain.handle('launcher/stopGame', async (_evt, game) => {
   const requestedKey = game ? makeGameKey(game) : null;
 
   if (!requestedKey) {
-    for (const [gameKey, proc] of [...runningProcesses.entries()]) {
-      try { proc.kill(); } catch {}
-      runningProcesses.delete(gameKey);
-    }
-    return { ok: true, stoppedAll: true };
+    const failed = await stopAllGames();
+    return { ok: failed.length === 0, stoppedAll: failed.length === 0, failed };
   }
 
-  const proc = runningProcesses.get(requestedKey);
-  if (!proc) {
+  const record = runningProcesses.get(requestedKey);
+  if (!record) {
     return { ok: true, stopped: false, gameKey: requestedKey };
   }
 
-  try {
-    proc.kill();
-  } catch {
-    // ignore
-  }
-
-  runningProcesses.delete(requestedKey);
-  return { ok: true, stopped: true, gameKey: requestedKey };
+  const stopped = await stopOneGame(requestedKey, record);
+  return { ok: stopped, stopped, gameKey: requestedKey };
 });
 
 // ───────────────────────────────────────────────────────────

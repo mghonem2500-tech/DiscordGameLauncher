@@ -40,15 +40,6 @@ jobs:
             exit 1
           }
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Discord Fake Game Launcher ${{ steps.ver.outputs.version }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-
       - name: Publish DummyGame for bundling
         run: |
           dotnet restore ./src/DummyGame/DummyGame.csproj
@@ -57,15 +48,43 @@ jobs:
       - name: Install Electron dependencies
         run: |
           cd electron
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
 
-      - name: Set Electron app version
+      - name: Verify Electron package version
         shell: pwsh
         run: |
           $v = "${{ steps.ver.outputs.version }}"
-          Push-Location electron
-          npm version $v --no-git-tag-version
-          Pop-Location
+          $package = Get-Content electron/package.json -Raw | ConvertFrom-Json
+          $lock = Get-Content electron/package-lock.json -Raw | ConvertFrom-Json
+          if ($package.version -ne $v -or $lock.version -ne $v) {
+            Write-Error "Package version does not match release tag $v"
+            exit 1
+          }
+
+      - name: Check JavaScript and run unit tests
+        working-directory: ./electron
+        run: npm run check
+
+      - name: Validate DummyGame template
+        working-directory: ./electron
+        run: npm run validate:template
+
+      - name: Build installer for validation
+        working-directory: ./electron
+        run: npm run dist
+
+      - name: Validate packaged DummyGame payload
+        working-directory: ./electron
+        run: npm run validate:package
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Discord Fake Game Launcher ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
 
       - name: Build and publish installer + latest.yml
         env:
