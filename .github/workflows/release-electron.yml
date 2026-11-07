@@ -53,13 +53,8 @@ jobs:
       - name: Verify Electron package version
         shell: pwsh
         run: |
-          $v = "${{ steps.ver.outputs.version }}"
-          $package = Get-Content electron/package.json -Raw | ConvertFrom-Json
-          $lock = Get-Content electron/package-lock.json -Raw | ConvertFrom-Json
-          if ($package.version -ne $v -or $lock.version -ne $v) {
-            Write-Error "Package version does not match release tag $v"
-            exit 1
-          }
+          $env:EXPECTED_VERSION = "${{ steps.ver.outputs.version }}"
+          node -e "const p=require('./electron/package.json'); const l=require('./electron/package-lock.json'); const v=process.env.EXPECTED_VERSION; if(p.version!==v || l.version!==v || l.packages[''].version!==v) { console.error('Package version does not match release tag '+v); process.exit(1); }"
 
       - name: Check JavaScript and run unit tests
         working-directory: ./electron
