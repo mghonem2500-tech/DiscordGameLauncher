@@ -34,6 +34,7 @@
   "build": {
     "appId": "com.mghonem2500.medo-game-launcher",
     "productName": "Medo Game Launcher",
+    "artifactName": "Medo.Game.Launcher.Setup.${version}.${ext}",
     "icon": "icon.ico",
     "files": [
       "src/**"

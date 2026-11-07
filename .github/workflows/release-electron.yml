@@ -80,10 +80,8 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
-
-      - name: Build and publish installer + latest.yml
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cd electron
-          npm run dist:publish
+          fail_on_unmatched_files: true
+          files: |
+            electron/dist/Medo.Game.Launcher.Setup.${{ steps.ver.outputs.version }}.exe
+            electron/dist/Medo.Game.Launcher.Setup.${{ steps.ver.outputs.version }}.exe.blockmap
+            electron/dist/latest.yml
